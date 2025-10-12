@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://json.schemastore.org/yamllint.json
+---
+no_banner: True
+
+# the verbosity of the client
+verbose: 0
+
+# the role for this client to use
+role: "hybrid"
+
+# the queue backend to use
+# the default is 'none', which is a local-only, non-shared, in-memory queue.
+queue_backend: "none"
+
+# any job this client should seed (publish)
+job: "invoke_llm"
+
+# the playbook containing the any details for the job
+playbook: "playbooks/example-invoke-llm-pirate.yaml"
+
+# this matches the playbook format for prompt..
+# this allows adding additional prompts to the playbook + command line prompts for convenience.
+prompt:
+  # additional llm system prompt
+  system: "Start and end each response with a random emoji."
+  # additional llm user prompt (optional)
+  user: ""

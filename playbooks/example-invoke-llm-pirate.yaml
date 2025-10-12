@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://json.schemastore.org/yamllint.json
+---
+name: Invoke LLM Example Playbook
+version: 1.0.0
+schema_version: 1.0.0
+
+# the details of the LLM model to run
+model:
+  provider: ollama
+  init_args:
+    model: qwen3:latest
+    temperature: 0.8
+    reasoning: True
+
+# the prompts to run
+prompt:
+  system: "Talk like a pirate."
+  user: ""
+
+# which tools to load and make available (tool loading happens on the worker)
+# these are all different ways of controlling which tools are loaded and made available to the llm
+tools:
+  # define a tool here
+  - name: scan_nmap
+    path: tools/scan_nmap.py
+  # or from an include
+  - !Inc tools/ping.yaml
+  # or load all the tools in a dir (and use the file names as the tool name)s.py
+  - glob: tools/*.py
+
+# which MCP servers to make available
+mcp:
+  fetch: !Inc mcp/fetch.yaml

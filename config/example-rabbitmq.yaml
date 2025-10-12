@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://json.schemastore.org/yamllint.json
+---
+no_banner: True
+
+# the verbosity of the client
+verbose: 0
+
+# the role for this client to use
+role: "hybrid"
+
+# the queue backend to use
+# This assumes RabbitMQ is using credentials guest:guest on localhost on the default port and exchange /.
+queue_backend: "rabbitmq"
+queue_backend_options:
+  url: "amqp://guest:guest@localhost:5672/%2F"
+
+# any job this client should seed (publish) when starting up
+job: "invoke_llm"
+# the playbook containing the any details for the job
+playbook: "playbooks/example-invoke-llm-pirate.yaml"
+
+# should we wait for the result from any submitted job.
+wait_for_result: true
+# should we open an interactive session (show output and wait for additional input)
+interactive: false
+
+# this matches the playbook format for prompt..
+# this allows adding additional prompts to the playbook + command line prompts for convenience.
+prompt:
+  # additional llm system prompt
+  system: "Start and end each response with a random emoji."
+  # additional llm user prompt (optional)
+  user: ""

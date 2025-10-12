@@ -1,0 +1,10 @@
+command: docker
+args:
+  - run
+  - --rm
+  - -i
+  - mcp-server-fetch
+  - mcp-server-fetch
+  - --log-level=ERROR
+env: {}
+transport: stdio
