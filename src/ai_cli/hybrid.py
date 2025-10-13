@@ -33,10 +33,10 @@ class HybridClient():
       )
     self._job_seeder = JobSeeder( queue=self._queue )
 
-  def _mark_job_complete(self, response: JobResponse):
-    for job in list(self._outstanding_jobs):
-      if str(job.message_id) == response.request_message_id:
-        self._outstanding_jobs.remove(job)
+  def _mark_job_complete( self, response: JobResponse ):
+    for job in list( self._outstanding_jobs ):
+      if str( job.message_id ) == response.request_message_id:
+        self._outstanding_jobs.remove( job )
         break
 
   def _dispatch_request( self, request: JobRequest ):
@@ -56,25 +56,25 @@ class HybridClient():
     # thanks to using pickle and wrapping the result in a response,
     # the result will be automatically thawed into any custom result type returned by the job.
     output = self._outout_formatter.format( response.result )
-    self.console.print( Markdown(output) )
+    self.console.print( Markdown( output ) )
     self._response_consumer.ack_response( response=response )
     self._mark_job_complete( response=response )
-    if not len(self._outstanding_jobs):
+    if not len( self._outstanding_jobs ):
       if self._app_config.verbose:
-        self.console.print("All jobs complete, exiting.")
+        self.console.print( "All jobs complete, exiting." )
       exit()
 
   def run( self ):
     if self._app_config.verbose > 1:
       self.console.print( "Hybrid Client Running." )
-    if self._app_config.job:
+    if self._app_config.job and self._playbook:
       if self._app_config.verbose > 1:
         self.console.print( f"HybridClient -> sending job request {self._app_config.job}" )
       new_job = JobRequest( job_name=self._app_config.job, origin=gethostname(), job_playbook=self._playbook )
-      self._outstanding_jobs.append(new_job)
+      self._outstanding_jobs.append( new_job )
       if self._app_config.verbose:
         self.console.print( f"Seeding job '{new_job.job_name}' to queue ..." )
-        self.console.print( Markdown(self._outout_formatter.format( object=new_job )) )
+        self.console.print( Markdown( self._outout_formatter.format( object=new_job ) ) )
       self._job_seeder.send_request( request=new_job )
     if self._app_config.wait_for_result and self._app_config.worker:
       if self._app_config.verbose:

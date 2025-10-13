@@ -22,6 +22,8 @@ class App:
 [color(201)] ▀  ▀ ▀▀▀      ·▀▀▀ .▀▀▀ ▀▀▀[/color(201)]
 [color(249)]Created By:[/color(249)]     [color(255)]Matt Zrinsky[/color(255)]
 """
+  config_paths = [ os.path.expanduser( '~/.config/ai-cli/' ) ]
+  _playbook = None
 
   def __init__( self ):
     self.console = Console()
@@ -67,6 +69,11 @@ class App:
     pass
 
   def _inject_config_into_playbook( self, config: AppConfig, playbook_data: dict ) -> Optional[ dict ]:
+    """This method injects the prompt data from the config file into the playbook data.
+
+    Note:
+      This breaks some separation of concerns to increase usability?
+      This might go away some day the use-cases here are not super clear at this point.. needs real-world testing."""
     if config.system_prompt:
       if "prompt" not in playbook_data:
         playbook_data[ "prompt" ] = { "system": config.system_prompt }
@@ -77,7 +84,7 @@ class App:
           playbook_data[ "prompt" ][ "system" ].extend( config.system_prompt )
         elif isinstance( playbook_data[ "prompt" ][ "system" ], str ):
           playbook_data[ "prompt" ][ "system" ] = [ playbook_data[ "prompt" ][ "system" ], *config.system_prompt ]
-    
+
     if "prompt" in playbook_data and "system" in playbook_data[ "prompt" ] and not isinstance( playbook_data[ "prompt" ][ "system" ], list ):
       playbook_data[ "prompt" ][ "system" ] = [ playbook_data[ "prompt" ][ "system" ] ]
 
@@ -95,29 +102,42 @@ class App:
     if "prompt" in playbook_data and "user" in playbook_data[ "prompt" ] and not isinstance( playbook_data[ "prompt" ][ "user" ], list ):
       playbook_data[ "prompt" ][ "user" ] = [ playbook_data[ "prompt" ][ "user" ] ]
 
-
     return playbook_data
 
-  def _load_config( self, parsed_args: SimpleNamespace ) -> AppConfig:
-    """Load a any config files, apply any command line args, and return an AppConfig"""
+  def _lookup_config_file( self, parsed_args: SimpleNamespace ) -> Optional[ TextIOWrapper ]:
+    if parsed_args.config:
+      return parsed_args.config
+    else:
+      for config_path in self.config_paths:
+        config_file = os.path.join( config_path, 'default.yaml' )
+        if os.path.exists( config_file ):
+          return open( config_file, 'r' )
+
+  def _load_config( self, config_file: Optional[ TextIOWrapper ], parsed_args: SimpleNamespace ) -> AppConfig:
+    """Load any config files, apply any command line args, and return an AppConfig"""
     app_config = AppConfig()
-    app_config.from_yaml( config_file=parsed_args.config, cmd_args=parsed_args )
+    app_config.from_yaml( config_file=config_file, cmd_args=parsed_args )
     return app_config
 
   def run( self ):
     try:
+      # this bootstrapping process is not the best.. but it's fine for now..
+      # it would be better if the debug logging could happen on _lookup_config_file so it says what files it tries to load.
       parsed_args = self._parse_args()
       self._validate_args( parsed_args )
-      self._config = self._load_config( parsed_args=parsed_args )
+      config_file = self._lookup_config_file( parsed_args=parsed_args )
+      self._config = self._load_config( config_file=config_file, parsed_args=parsed_args )
       if not self._config.no_banner:
         self.console.print( self.l33t_header )
       if self._config.config_file and self._config.verbose:
         self.console.print( f"Loading config file '{self._config.config_file.name}' ..." )
+      elif self._config.verbose:
+        self.console.print( f"No config file specified, and default not found." )
       if self._config.verbose > 3:
         self.console.print( self._config )
       if ( self._config.playbook_file ):
         if self._config.verbose:
-          if isinstance(self._config.playbook_file, TextIOWrapper):
+          if isinstance( self._config.playbook_file, TextIOWrapper ):
             filename = self._config.playbook_file.name
           else:
             filename = self._config.playbook_file
@@ -131,4 +151,4 @@ class App:
       exit()
     except Exception as e:
       self.console.print_exception()
-      exit(1)
+      exit( 1 )

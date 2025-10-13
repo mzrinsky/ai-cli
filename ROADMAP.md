@@ -10,7 +10,7 @@ They are not in order of priority and no time-frame planned for release.
 
 If a feature is important to you, consider supporting this project financially.
 
-- Read from a default config file someplace.
+- ~~Read from a default config file someplace.~~ Will now check for ~/.config/ai-cli/default.yaml
 - Add additional chat models to the chat model factory (e.g. HuggingFace etc.)
 - Add additional jobs for things like image generation, image classification etc.
 - Add the ability for invoke_llm to queue tasks back into ai-cli (custom tool)

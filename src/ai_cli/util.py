@@ -22,7 +22,7 @@ class OutputFormatter():
     elif isinstance( object, JobRequest ):
       # format JobRequest for display in the terminal
       output = ""
-      if object.job_name == "invoke_llm":
+      if object.job_name == "invoke_llm" and object.job_playbook and "prompt" in object.job_playbook:
         output = output + "**Job**: " + object.job_name + "\n- **System Prompt**: " + str( ", " ).join(
           object.job_playbook[ "prompt" ][ "system" ]
         ) + "\n- **User Prompt**: " + str( ", " ).join( object.job_playbook[ "prompt" ][ "user" ] ) + "\n"
