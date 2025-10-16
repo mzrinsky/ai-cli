@@ -10,6 +10,8 @@ They are not in order of priority and no time-frame planned for release.
 
 If a feature is important to you, consider supporting this project financially.
 
+- Make use of the available middleware https://docs.langchain.com/oss/python/langchain/middleware
+- Make full use of create_agent from LangChain as it overlaps so much with our goals in invoke_llm.
 - ~~Read from a default config file someplace.~~ Will now check for ~/.config/ai-cli/default.yaml
 - Add additional chat models to the chat model factory (e.g. HuggingFace etc.)
 - Add additional jobs for things like image generation, image classification etc.
