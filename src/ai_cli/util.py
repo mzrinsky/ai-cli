@@ -26,6 +26,8 @@ class OutputFormatter():
         output = output + "**Job**: " + object.job_name + "\n- **System Prompt**: " + str( ", " ).join(
           object.job_playbook[ "prompt" ][ "system" ]
         ) + "\n- **User Prompt**: " + str( ", " ).join( object.job_playbook[ "prompt" ][ "user" ] ) + "\n"
+        if object.attachments:
+          output = output + "\n- **Attachments**: " + ", ".join(attachment['path'] for attachment in object.attachments) + "\n"
       else:
         output = str(object)
       return output

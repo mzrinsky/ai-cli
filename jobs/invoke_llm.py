@@ -48,6 +48,7 @@ class InvokeLlm( IJob ):
   _message_state: dict = {}
   _state_history: list = []
   _console: any
+  _context: Optional[ str ] = None
 
   def __init__(self, app_config: dict, console: any):
     self._app_config = app_config
@@ -210,6 +211,18 @@ class InvokeLlm( IJob ):
     #     user_prompt = app_config[ "prompt" ]
     return user_prompt
 
+  def process_documents( self ):
+    if self._request.documents:
+      for document in self._request.documents:
+        if self._context:
+          self._context = self._context + document.filename + ": " + document.read_str() + "\n"
+        else:
+          self._context = document.filename + ": " + document.read_str() + "\n"
+        # do something useful with document..
+
+  def _generate_prompt_context( self ) -> str:
+    return self._context
+
   def run( self, request: JobRequest ) -> JobResult:
     """job_queue.IJob implementation that can invoke a tool calling, mcp supporting llm using LangChain and LangGraph."""
 
@@ -232,11 +245,16 @@ class InvokeLlm( IJob ):
       self.build_tool_llm_state_graph()
       self._graph = self._state_graph.compile()
 
+      self.process_documents()
+
       # get the prompt etc together..
       self._message_state = {
         "messages": [ {
         "role": "system",
         "content": self._generate_system_prompt()
+        }, {
+        "role": "user",
+        "content": self._generate_prompt_context()
         }, {
         "role": "user",
         "content": self._generate_user_prompt()

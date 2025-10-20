@@ -30,11 +30,15 @@ class AppConfig:
   system_prompt: Optional[ list[ str ] ] = None
   # contains user prompts from the config file + command line
   user_prompt: Optional[ list[ str ] ] = None
+  # attachments.. this contains a list of document attachments, from the config file + command line..
+  attachments: Optional[ list[ str ] ] = None
   # the config file that was loaded with app-level config options
   config_file: Optional[ str | TextIOWrapper ] = None
+  # hide the banner
   no_banner: bool = False
 
   def from_yaml( self, config_file: Optional[ str | TextIOWrapper ] = None, cmd_args: Optional[ SimpleNamespace ] = None ):
+    """This method loads config data from a config file and combines it with config data passed in cmd_args and sets self with that data."""
 
     # load items from config file..
     if isinstance( config_file, str ):
@@ -53,10 +57,12 @@ class AppConfig:
       mapped_key = key
       if key == "playbook":
         mapped_key = "playbook_file"
+      elif key == "attachment":
+        mapped_key = "attachments"
       elif key == "prompt":
         new_system_prompt = value.get( "system", self.system_prompt )
         if new_system_prompt.strip():
-          if (self.system_prompt):
+          if ( self.system_prompt ):
             self.system_prompt.append( new_system_prompt )
           else:
             self.system_prompt = [ new_system_prompt ]
@@ -74,17 +80,28 @@ class AppConfig:
 
     # set defaults from cmd_args..
     if cmd_args:
-      if isinstance(cmd_args.system_prompt, str) and cmd_args.system_prompt.strip():
+      if isinstance( cmd_args.system_prompt, str ) and cmd_args.system_prompt.strip():
         if self.system_prompt:
           self.system_prompt.append( cmd_args.system_prompt )
         else:
           self.system_prompt = [ cmd_args.system_prompt ]
 
-      if isinstance(cmd_args.user_prompt, str) and cmd_args.user_prompt.strip():
+      if isinstance( cmd_args.user_prompt, str ) and cmd_args.user_prompt.strip():
         if self.user_prompt:
           self.user_prompt.append( cmd_args.user_prompt )
         else:
           self.user_prompt = [ cmd_args.user_prompt ]
+
+      if isinstance( cmd_args.attachment, str ) and cmd_args.attachment.strip():
+        if self.attachments:
+          self.attachments.append( { "path": cmd_args.attachment } )
+        else:
+          self.attachments = [ { "path": cmd_args.attachment } ]
+      elif isinstance( cmd_args.attachment, list ):
+        if not self.attachments:
+          self.attachments = []
+        for attachment in cmd_args.attachment:
+          self.attachments.append( { "path": attachment } )
 
       if cmd_args.playbook:
         self.playbook_file = cmd_args.playbook

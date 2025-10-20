@@ -62,6 +62,7 @@ class App:
     parser.add_argument( '-j', '--job', required=False, help='Name of job to use default is invoke_llm' )
     parser.add_argument( '-s', '--system-prompt', required=False, help='System prompt to use with invoke_llm job' )
     parser.add_argument( '-u', '--user-prompt', required=False, help='User prompt to use with invoke_llm job' )
+    parser.add_argument( '-a', '--attachment', required=False, help='Attach a document to give the LLM as context' )
 
     return parser.parse_args()
 
@@ -73,6 +74,7 @@ class App:
 
     Note:
       This breaks some separation of concerns to increase usability?
+      If this stays it should move to the AppConfig layer maybe?
       This might go away some day the use-cases here are not super clear at this point.. needs real-world testing."""
     if config.system_prompt:
       if "prompt" not in playbook_data:
@@ -101,6 +103,14 @@ class App:
 
     if "prompt" in playbook_data and "user" in playbook_data[ "prompt" ] and not isinstance( playbook_data[ "prompt" ][ "user" ], list ):
       playbook_data[ "prompt" ][ "user" ] = [ playbook_data[ "prompt" ][ "user" ] ]
+
+    # inject any attachments from the config into the playbook..
+    # this is bridging a gap between command line args and the playbooks.. (for convenience..)
+    if config.attachments:
+      if "docs" not in playbook_data:
+        playbook_data["docs"] = config.attachments
+      else:
+        playbook_data["docs"].extend( config.attachments )
 
     return playbook_data
 

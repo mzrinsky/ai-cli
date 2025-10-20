@@ -70,7 +70,9 @@ class HybridClient():
     if self._app_config.job and self._playbook:
       if self._app_config.verbose > 1:
         self.console.print( f"HybridClient -> sending job request {self._app_config.job}" )
-      new_job = JobRequest( job_name=self._app_config.job, origin=gethostname(), job_playbook=self._playbook )
+      # any documents need to get processed here.. and attached at the request level..
+      # this step ensures the documents are moved to some sort of shared storage so they are available to any job consumers.
+      new_job = JobRequest( job_name=self._app_config.job, origin=gethostname(), job_playbook=self._playbook, attachments=self._app_config.attachments )
       self._outstanding_jobs.append( new_job )
       if self._app_config.verbose:
         self.console.print( f"Seeding job '{new_job.job_name}' to queue ..." )

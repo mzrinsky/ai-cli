@@ -9,18 +9,38 @@ import pickle
 from importlib.util import spec_from_file_location, module_from_spec
 from datetime import datetime
 from uuid import uuid4
+from pathlib import Path
+
+
+@dataclass( frozen=True )
+class IDocument( ABC ):
+  """Interface for Document implementations."""
+
+  filename: str
+
+  @abstractmethod
+  def read( self ) -> bytes:
+    """Return document contents as bytes"""
+    pass
+
+  @abstractmethod
+  def read_str( self ) -> str:
+    """Return document contents as a str"""
+    pass
 
 
 @dataclass( frozen=True )
 class IJobRequest( ABC ):
   """Interface for JobRequest implementations."""
-  
+
   job_name: str
   origin: str
   job_playbook: str
   response_dest: Optional[ str ]
   message_id: Optional[ str ]
   ack_id: Optional[ str ]
+  documents: Optional[ list[ IDocument ] ]
+  attachments: Optional[ list[ str ] ]
 
 
 @dataclass( frozen=True )
@@ -280,6 +300,46 @@ class QueueMessage( IQueueMessage ):
   origin_host_id: Optional[ str ] = None
 
 
+class Document( IDocument ):
+  """
+    A Document implementation based on an underlying shared filesystem.
+
+    Represents a document with a specified filepath.
+    If the document does not exist at the shared file location,
+    it will be copied there. Otherwise, it will be read from that location.
+    """
+
+  filename: str 
+  storage_path: str
+  shared_location: Path = Path.joinpath( Path.home(), "tmp", "mock-file-share" )
+
+  def __init__( self, filepath: str ) -> None:
+    self.filepath = Path( filepath )
+    object.__setattr__( self, 'filename', self.filepath.name )
+    self.storage_path = self.shared_location / self.filename
+    self._copy_to_shared_location()
+
+  def read( self ) -> bytes:
+    """Fetch the contents of the document from the shared location."""
+    with open( self.storage_path, 'rb' ) as file:
+      return file.read()
+
+  def read_str( self ) -> str:
+    """Read the contents of the document as text from the shared location."""
+    with open( self.storage_path, 'r', encoding='utf-8' ) as file:
+      return file.read()
+
+  def _copy_to_shared_location( self ) -> None:
+    """Copy the document to the shared location."""
+    if not self.storage_path.exists():
+      if not self.storage_path.parent.exists():
+        os.makedirs( self.storage_path.parent, exist_ok=True )
+      if not self.filepath.exists():
+        raise FileNotFoundError( f"The original file {self.filepath} does not exist." )
+      with open( self.filepath, 'rb' ) as src_file, open( self.storage_path, 'wb' ) as dest_file:
+        dest_file.write( src_file.read() )
+
+
 @dataclass( frozen=True )
 class JobRequest( IJobRequest ):
   """A default JobRequest Implementation."""
@@ -289,6 +349,14 @@ class JobRequest( IJobRequest ):
   message_id: Optional[ str ] = field( default_factory=uuid4 )
   ack_id: Optional[ str ] = None
   response_dest: Optional[ str ] = None
+  documents: Optional[ list[ IDocument ] ] = None
+  attachments: Optional[ list[ dict ] ] = None
+
+  def __post_init__( self ):
+    if self.attachments:
+      print( f"Processing attachments: {self.attachments}" )
+      object.__setattr__( self, 'documents', [ Document( attachment[ "path" ] ) for attachment in self.attachments ] )
+      print( f"Documents is now: {self.documents}" )
 
 
 @dataclass( frozen=True )
@@ -345,6 +413,7 @@ class JobConsumer( IJobConsumer, IResponseSeeder ):
       deserialized_obj = json.loads( serialized_obj )
     else:
       raise Exception( f"Unsupported deserialization format: {self._body_format}" )
+    print( f"Deserialized message body into {deserialized_obj}" )
     return deserialized_obj
 
   def _get_queue_names( self ) -> list[ str ]:
@@ -365,9 +434,10 @@ class JobConsumer( IJobConsumer, IResponseSeeder ):
     return JobRequest(
       job_name=message.context,
       origin=message.origin_host_id,
-      job_playbook=decoded_message_body,
+      job_playbook=decoded_message_body.job_playbook,
       message_id=message.reply_to if message.reply_to and message.reply_to != 'None' else message.message_id,
-      ack_id=message.ack_id
+      ack_id=message.ack_id,
+      documents=decoded_message_body.documents,
     )
 
   def ack_request( self, request: IJobRequest ):
@@ -442,7 +512,7 @@ class JobSeeder( IJobSeeder ):
   def send_request( self, request: IJobRequest ):
     """Send an IJobRequest via the IQueue as a QueueMessage"""
     # print( f"JobSeeder.send_request -> IJobRequest {request}" )
-    encoded_message_body = self._serialize_obj( obj=request.job_playbook )
+    encoded_message_body = self._serialize_obj( obj=request )
     message = QueueMessage(
       message_id=request.message_id,
       type='job',
