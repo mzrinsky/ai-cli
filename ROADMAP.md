@@ -12,14 +12,14 @@ If a feature is important to you, consider supporting this project financially.
 
 - Make use of the available middleware https://docs.langchain.com/oss/python/langchain/middleware
 - Make full use of create_agent from LangChain as it overlaps so much with our goals in invoke_llm.
-- ~~Read from a default config file someplace.~~ Will now check for ~/.config/ai-cli/default.yaml
+- ~~Read from a default config file someplace.~~ Will now check for `~/.config/ai-cli/default.yaml`
 - Add additional chat models to the chat model factory (e.g. HuggingFace etc.)
 - Add additional jobs for things like image generation, image classification etc.
 - Add the ability for invoke_llm to queue tasks back into ai-cli (custom tool)
 - Add context support for invoke_llm to allow inclusion of content from various sources (and a docs section to the playbooks).
 - Add support for rules section of playbooks (to include additional custom instructions for the LLM)
 - Expand the local tools available for invoke_llm.
-- Add support for saving / loading a chat history with invoke_llm to allow the user to continue a conversation.
+- Add support for saving / loading a chat history with invoke_llm to allow the user to continue a conversation. (Look at doing this with existing MCP servers / tools)
 - Add support for opening a side-channel websocket from a worker to allow streaming a response to a client
 - Expand support for dealing with and returning various data formats (images etc.)
 - Add support for piped inputs on the command line (to allow chaining and piping images as input etc.)

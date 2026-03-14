@@ -1,23 +1,34 @@
 # ai-cli.py Design
 
-> An attempt to document some of the design choices.
+> Document the design choices and architecture of the project.
 
-Some of the goals for this project.
 
- - Queue the execution of a job.
- - Run other jobs in the future (not just LLM) 
- - Make writing new jobs easy.
+Some of the goals for this project. (`ai-cli.py` already does some of these things.)
+
+ - Queue the execution of `Jobs`
+ - Enable running multiple workers (distributed task queue)
+ - Provide other useful jobs in the future (not just LLM)
+ - Make writing new jobs easy
+ - Add Image I/O support (vision models)
  - Make running prompts really easy / chainable with normal pipes & redirects
  - Make it easy to add new tools to the LLM
  - Run without a RabbitMQ server (local-only with no extra setup)
- - Support multiple backends (not just Ollama)
- - Run multiple workers (distributed task queue)
- - Log / monitor / respond to results from jobs.
+ - Support multiple backends / frameworks (Semantic Kernel, LM Studio, etc.)
+ - Support popular Services (OpenAI, Anthropic, etc.)
+ - Log / monitor / respond to results from `Jobs`
+ - Provide a TUI / GUI for interacting with `Consumers` / `Jobs` / `Results` etc.
+
+
+## Overview
+
+ - `Config`: Holds application level configuration information, and is used to control how ai-cli.py behaves.
+ - `Playbook`: Holds `Job` level configuration information and is used to control how a job behaves.
+ - `Job`: This is the code run with the `Playbook` information.
 
 
 ## Basic Terminology
 
-In an attempt at code-reuse the following roles were identified to encapsulate components with overlapping behavior.
+The following roles encapsulate the various behaviors of the system.
 
  - `Consumer`: Consume jobs or results
  - `Seeder`: Seed (publish) items into a queue.
@@ -32,9 +43,7 @@ In addition to these roles some other core components have been defined.
 - `Queue`: A message broker queue.
 
 
-## Overview
-
-### Jobs
+## Jobs
 
 In this initial release there are only 2 jobs included by default.
 
@@ -42,7 +51,7 @@ In this initial release there are only 2 jobs included by default.
  - `invoke_llm`: A job which runs a prompt on a local LLM (currently though Ollama) using LangChain & LangGraph with support for tool-calling and MCP servers.
 
 
-#### Features of invoke_llm
+#### Features of invoke_llm Job
 
  - Built on top of LangChain and LangGraph to allow easy integration of new tools.
  - Dynamically loads the `tools/` directory on invocation, allowing on-the-fly new tools (each time invoke_llm is run).
@@ -53,17 +62,10 @@ In this initial release there are only 2 jobs included by default.
  - The LLM has the ability to run tools multiple times to accomplish it's goal.
 
 
-### Config Files
-
-These hold application level configuration information, and are used to control how ai-cli.py behaves.
-
-
-### Playbook Files
-
-These hold job level configuration information and are used to control how a job behaves.
-
-
 ## Internals
 
-Browse the source for now, generated documentation is on the [ROADMAP.md](ROADMAP.md).
+Good places to start:
+ - [jobs/invoke_llm.py](jobs/invoke_llm.py) : The `invoke_llm` Job.
+ - [src/ai_cli/job_queue.py](src/ai_cli/job_queue.py) : The main `Interface` and `Class` implementations.
 
+For more, browse the source, generated API documentation is on the [ROADMAP.md](ROADMAP.md).

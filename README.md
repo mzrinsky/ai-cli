@@ -1,73 +1,155 @@
 # ai-cli.py
 
-> Aims to be a simplified user-friendly interface to running AI enabled jobs from the command line with the ability to queue executions.
-
-This tool was created as part of my personal research and to serve as a basis for future work and testing.
-
-It is currently a Work In Progress.
+`ai-cly.py` is a tool that aims to be a simplified user-friendly interface to running AI jobs using a message broker.  It provides a flexible job execution system using RabbitMQ to allow for parallel execution of jobs and multiple worker instances.
 
 [![GitHub License](https://img.shields.io/github/license/mzrinsky/ai-cli)](./LICENSE)
 [![Python 3](https://img.shields.io/badge/Python-3.12_|_3.13-blue)](https://www.python.org/)
 
 
-## Warning
-
-This is an experimental tool for exploring AI automation using LLMs and should be used with caution.
-
-Interfaces and APIs are subject to change.
-
-For further information please refer to the [Disclaimer](#disclaimer).
-
-
 ## Overview
-
-### What is it?
-
-`ai-cli.py` is a tool that aims to be a simplified user-friendly interface to running AI enabled jobs from the command line.
 
 ### What can it do?
 
-- Run user prompts on a an LLM with tool-calling and MCP server support.
-- Job execution parameters are configurable via YAML files.
+- Run prompts on a local LLM with tool-calling and MCP server support.
+- `Job` execution parameters are configurable via YAML `Playbook` files.
 - Queue the execution of a prompt on an LLM.
 - Flexible Job execution system (run more than just invoke_llm job).
-
+- Ability to use RabbitMQ as a message broker to allow for parallel execution of jobs & multiple worker instances.
 
 ## Getting Started
 
-### Install
+### Prerequisites
+
+- Python 3.13
+- Ollama
+- Docker (for local RabbitMQ)
+
+### Install on Linux / Mac
+
+Clone the `ai-cli` repository and `cd` into it.
 
 ```bash
-# Clone repository
 git clone https://github.com/mzrinsky/ai-cli.git
 cd ai-cli
+```
 
-# Install deps
+Install the required python dependencies.
+
+```bash
 uv sync
 ```
 
-
-### Usage Examples
+Pull any models required by the invoke_llm job.
 
 ```bash
-# an invocation passing only a system prompt and user prompt
+ollama pull qwen3:latest
+```
+
+**NOT required for local-only single worker.**
+
+Run a local RabbitMQ server if desired.
+
+```bash
+docker compose -f docker/rabbitmq.yml up -d
+```
+
+Continue to [Quick Overview](#quick-overview) below.
+
+### Install on Windows
+
+Install git if needed.
+
+```PowerShell
+winget.exe Git.Git
+```
+
+Clone the `ai-cli` repository and `cd` into it.
+
+```PowerShell
+git clone https://github.com/mzrinsky/ai-cli.git
+cd ai-cli
+```
+
+Install the required python dependencies.
+
+```bash
+uv sync
+```
+
+Pull any models required by the invoke_llm job.
+
+```bash
+ollama pull qwen3:latest
+```
+
+**NOT required for local-only single worker.**
+
+Run a local RabbitMQ server if desired.
+
+```bash
+docker compose -f docker\rabbitmq.yml up -d
+```
+
+Continue to [Quick Overview](#quick-overview) below.
+
+
+## Basics
+
+### Quick Overview
+
+`ai-cli.py` reads `Config` files and `Playbook` files to run `Jobs`.
+
+- [Linux Usage](#linux-usage) Examples.
+- [Windows Usage](#windows-usage) Examples.
+- For more in-depth information about `ai-cli.py` internals see [Under The Hood](#under-the-hood).
+
+## Usage Examples
+
+### Linux Usage
+
+A default config file can be placed in `~/.config/ai-cli/default.yaml`, or one can be specified with `-c <config-file>` on the command line. 
+
+
+Adding additional system prompt instructions.
+
+```bash
 > ./bin/ai-cli.py -s "Talk like a pirate"
+🏴‍☠️ Arrr, ye seekin' adventure or a scurvy prank? Speak ye mind, matey! 🐙 
+```
 
-# a simple invocation using a config file and a customized user prompt from the command line
+Specify a custom config file with `-c <filename>` and a user prompt with `-u`
+```bash
 > ./bin/ai-cli.py -c config.yaml -u "Give me a random interesting fact."
+⚓ Did you know? Octopuses have three hearts! Two pump blood to the gills, and one pumps it to the rest of the body. When they swim, the heart that serves the body actually stops beating!  
+   🐙✨
+```
 
-# Using a custom playbook (all CLI options override or extend config and playbook options where applicable)
-> ./bin/ai-cli.py -c config.yaml -p custom-playbook.yaml -u "Give me a random interesting fact."
+Queue `invoke_llm` `Job` to be run by a `Worker`.
 
-# Queue a job to be run by a worker
+```bash
 > ./bin/ai-cli.py -r seeder -j invoke_llm -p custom-playbook.yaml -u "Return an interesting fact about cats."
+```
 
-# Run a worker
+Run a `Worker` to `Consume` the `Job` and return a `JobResult`.
+
+```bash
 > ./bin/ai-cli.py -r worker
 ```
 
+### Windows Usage
 
-### Config Example
+Adding additional system prompt instructions.
+
+```PowerShell
+> python.exe bin\ai.cli.py -c config\example-rabbitmq.yaml -s "Talk like a pirate"
+🏴‍☠️ Arrr, ye seekin' adventure or a scurvy prank? Speak ye mind, matey! 🐙 
+```
+This is a WIP.
+
+TODO: Add more windows usage examples.
+
+
+## Config Example
 
 ```yaml
 ---
@@ -84,19 +166,21 @@ prompt:
 More config examples can be seen in the [config/](config/) directory.
 
 
-### Playbook Example
+## Playbook Example
 
 ```yaml
 ---
 name: Invoke LLM Example Playbook
 version: 1.0.0
 schema_version: 1.0.0
+# which language model to use / which provider to load it with
 model:
   provider: ollama
   init_args:
     model: qwen3:latest
     temperature: 0.8
     reasoning: True
+# any additional user / system prompts (these are appended to any app config settings)
 prompt:
   system: "Prepend an emoji to all responses."
   user: "Appended to user prompt."
@@ -127,7 +211,16 @@ Follows basic abstract factory pattern in areas like the job queue provider, and
 
 Follows various adapter and bridge patterns to decouple various components and define clear interfaces.
 
-More details of the design and implementation are located in [DESIGN.md](DESIGN.md)
+Details of the design and implementation are located in [DESIGN.md](DESIGN.md)
+
+
+## Warning
+
+This is an experimental tool for exploring AI automation using LLMs and should be used with caution.
+
+Interfaces and APIs are subject to change.
+
+For further information please refer to the [Disclaimer](#disclaimer).
 
 
 ## Disclaimer
