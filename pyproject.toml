@@ -5,6 +5,7 @@ description = "A simplified user-friendly interface to running AI enabled jobs f
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "boto3>=1.42.68",
     "langchain-community>=0.3.31",
     "langchain-huggingface>=0.3.1",
     "langchain-mcp-adapters>=0.1.11",

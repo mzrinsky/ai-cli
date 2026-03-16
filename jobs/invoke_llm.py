@@ -5,7 +5,7 @@ import os
 import inspect
 
 from dataclasses import dataclass, field
-from ai_cli.job_queue import IJob, JobRequest, IJobResult, JobResult
+from ai_cli.job_queue import IJob, JobRequest, IJobResult, JobResult, IAttachment
 from typing import Optional
 import importlib
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -20,6 +20,7 @@ class LlmResult( IJobResult ):
   type: str = 'llm_result'
   value: Optional[ str ] = None
   error: Optional[ str ] = None
+  attachments: Optional[ list[ IAttachment ] ] = None
   state: list = field( default_factory=list )
 
 

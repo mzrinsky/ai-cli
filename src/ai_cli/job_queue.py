@@ -1,14 +1,59 @@
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Optional, Protocol
-import json
 import sys
 import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, Optional, Protocol, IO
+import json
 import re
 import pickle
 from importlib.util import spec_from_file_location, module_from_spec
 from datetime import datetime
 from uuid import uuid4
+from shared_storage import StorageModelFactory, IStorageModel
+
+@dataclass( frozen=True )
+class IAttachment( ABC ):
+  """Interface for Attachment implementations."""
+
+  file_path: str
+
+  @abstractmethod
+  def __init__(self, storage_model: IStorageModel, file_path: str):
+    pass
+
+  @abstractmethod
+  def get_file_handle(self) -> IO[Any]:
+    """Return a standard Python file handle."""
+    pass
+
+  @abstractmethod
+  def save_attachment(self):
+    """Persist the attachment to storage of some kind."""
+    pass
+
+  @abstractmethod
+  def load_attachment(self):
+    """Load the attachment from storage."""
+    pass
+
+@dataclass( frozen=True )
+class FileAttachment( IAttachment ):
+  storage: Optional[ IStorageModel ] = None
+
+  def __get_state__(self):
+    state = self.__dict__.copy()
+
+# @dataclass( frozen=True )
+# class IFile( IAttachment ):
+#   """Interface for File Attachment implementations"""
+
+
+
+# @dataclass( frozen=True )
+# class IImage( IAttachment ):
+#   """Interface for Image Attachment implementations"""
 
 
 @dataclass( frozen=True )
@@ -21,6 +66,7 @@ class IJobRequest( ABC ):
   response_dest: Optional[ str ]
   message_id: Optional[ str ]
   ack_id: Optional[ str ]
+  attachments: Optional[ list[IAttachment] ]
 
 
 @dataclass( frozen=True )
@@ -30,6 +76,7 @@ class IJobResult( ABC ):
   type: str
   value: Optional[ str ]
   error: Optional[ str ]
+  attachments: Optional[ list[IAttachment] ]
 
 
 @dataclass( frozen=True )
@@ -289,6 +336,7 @@ class JobRequest( IJobRequest ):
   message_id: Optional[ str ] = field( default_factory=uuid4 )
   ack_id: Optional[ str ] = None
   response_dest: Optional[ str ] = None
+  attachments: Optional[ list[ IAttachment ] ] = None
 
 
 @dataclass( frozen=True )
@@ -297,6 +345,7 @@ class JobResult( IJobResult ):
   type: str = 'result'
   value: Optional[ str ] = None
   error: Optional[ str ] = None
+  attachments: Optional[ list[ IAttachment ] ] = None
 
 
 @dataclass( frozen=True )

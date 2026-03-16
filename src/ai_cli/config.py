@@ -19,6 +19,10 @@ class AppConfig:
   queue_backend: str = 'none'
   # any init args to pass to the queue
   queue_backend_options: Optional[ dict ] = None
+  # the storage backend to use
+  storage_backend: str = 'none'
+  # any init args to pass to the storage backend
+  storage_backend_options: Optional[ dict ] = None
   # a job to seed (publish) upon starting
   job: Optional[ str ] = 'invoke_llm'
   # control hybrid client behavior

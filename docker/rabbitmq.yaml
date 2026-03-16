@@ -6,7 +6,7 @@ services:
       - "15672:15672"
       - "5671:5671"
       - "5672:5672"
-    hostname: "m31"
+    hostname: "rabbitmq"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest

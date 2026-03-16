@@ -6,6 +6,7 @@ from ai_cli.job_queue import IQueue, JobQueueFactory
 from ai_cli.playbook import PlaybookLoader
 from ai_cli.worker import WorkerClient
 from ai_cli.hybrid import HybridClient
+from ai_cli.shared_storage import IStorageModel, StorageModelFactory
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Optional
@@ -24,6 +25,7 @@ class App:
 """
   config_paths = [ os.path.expanduser( '~/.config/ai-cli/' ) ]
   _playbook = None
+  _storage_model = None
 
   def __init__( self ):
     self.console = Console()
@@ -32,14 +34,20 @@ class App:
   def _init_queue( self ) -> IQueue:
     return JobQueueFactory.create_queue( queue_type=self._config.queue_backend, init_args=self._config.queue_backend_options )
 
+  def _init_storage( self ) -> IStorageModel:
+    return StorageModelFactory.create_storage_model( provider=self._config.storage_backend, init_args=self._config.storage_backend_options )
+
   def run_client_role( self ):
+    if self._config.verbose > 1:
+      self.console.print("Initializing storage backend ...")
+    self._storage_model = self._init_storage()
     if self._config.verbose > 1:
       self.console.print( "Initializing queue ..." )
     self._queue = self._init_queue()
     if self._config.verbose > 1:
       self.console.print( f"Running in role '{self._config.role}' ..." )
     if self._config.role == 'hybrid':
-      self._hybrid = HybridClient( app_config=self._config, queue=self._queue, console=self.console, playbook=self._playbook )
+      self._hybrid = HybridClient( app_config=self._config, queue=self._queue, storage_model=self._storage_model, console=self.console, playbook=self._playbook )
       self._hybrid.run()
     elif self._config.role == 'worker':
       self._worker = WorkerClient( app_config=self._config, queue=self._queue, console=self.console )
@@ -62,6 +70,7 @@ class App:
     parser.add_argument( '-j', '--job', required=False, help='Name of job to use default is invoke_llm' )
     parser.add_argument( '-s', '--system-prompt', required=False, help='System prompt to use with invoke_llm job' )
     parser.add_argument( '-u', '--user-prompt', required=False, help='User prompt to use with invoke_llm job' )
+    parser.add_argument( '-a', '--attach', required=False, type=argparse.FileType( 'r' ), help='File or Image to attach to the job', nargs='*', dest='attachments' )
 
     return parser.parse_args()
 
@@ -73,7 +82,9 @@ class App:
 
     Note:
       This breaks some separation of concerns to increase usability?
-      This might go away some day the use-cases here are not super clear at this point.. needs real-world testing."""
+      This might go away some day the use-cases here are not super clear at this point.. needs real-world testing.
+      But basically the prompt is specific to the job, so should not actually be in the app config?
+      The job name should get moved to the playbook as well.."""
     if config.system_prompt:
       if "prompt" not in playbook_data:
         playbook_data[ "prompt" ] = { "system": config.system_prompt }
@@ -130,7 +141,7 @@ class App:
       if not self._config.no_banner:
         self.console.print( self.l33t_header )
       if self._config.config_file and self._config.verbose:
-        self.console.print( f"Loading config file '{self._config.config_file.name}' ..." )
+        self.console.print( f"Loaded config file '{self._config.config_file.name}' ..." )
       elif self._config.verbose:
         self.console.print( f"No config file specified, and default not found." )
       if self._config.verbose > 3:
@@ -145,6 +156,14 @@ class App:
         self._playbook = PlaybookLoader.load_playbook( playbook_file=self._config.playbook_file )
         if self._playbook:
           self._playbook = self._inject_config_into_playbook( config=self._config, playbook_data=self._playbook )
+      if (parsed_args.attachments):
+        if (self._config.verbose):
+          self.console.print(f"Found {len(parsed_args.attachments)} attachment(s).")
+          self.console.print( parsed_args.attachments )
+      else:
+        if (self._config.verbose):
+          self.console.print(f"Found 0 attachments.")
+          self.console.print( parsed_args.attachments )
       self.run_client_role()
     except KeyboardInterrupt as e:
       self.console.print( f"\nCaught keyboard interrupt. Exiting." )
