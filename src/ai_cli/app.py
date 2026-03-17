@@ -50,7 +50,7 @@ class App:
       self._hybrid = HybridClient( app_config=self._config, queue=self._queue, storage_model=self._storage_model, console=self.console, playbook=self._playbook )
       self._hybrid.run()
     elif self._config.role == 'worker':
-      self._worker = WorkerClient( app_config=self._config, queue=self._queue, console=self.console )
+      self._worker = WorkerClient( app_config=self._config, queue=self._queue, storage_model=self._storage_model, console=self.console )
       self._worker.run()
     else:
       raise Exception( f"Unsupported client role '{self._config.role}'" )
@@ -130,6 +130,12 @@ class App:
     app_config.from_yaml( config_file=config_file, cmd_args=parsed_args )
     return app_config
 
+  def _init_attachments( self ):
+    """Process any attachments that are passed in from the command line.."""
+    # the goal here is to perpare the IAttachment objects, so they can be passed to the client..
+    # we will let the client deal with IAttachment & IStorageModel, we just make it available.
+    pass
+
   def run( self ):
     try:
       # this bootstrapping process is not the best.. but it's fine for now..
@@ -160,6 +166,7 @@ class App:
         if (self._config.verbose):
           self.console.print(f"Found {len(parsed_args.attachments)} attachment(s).")
           self.console.print( parsed_args.attachments )
+        self._init_attachments()
       else:
         if (self._config.verbose):
           self.console.print(f"Found 0 attachments.")

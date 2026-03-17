@@ -40,20 +40,8 @@ class IAttachment( ABC ):
 
 @dataclass( frozen=True )
 class FileAttachment( IAttachment ):
-  storage: Optional[ IStorageModel ] = None
 
-  def __get_state__(self):
-    state = self.__dict__.copy()
-
-# @dataclass( frozen=True )
-# class IFile( IAttachment ):
-#   """Interface for File Attachment implementations"""
-
-
-
-# @dataclass( frozen=True )
-# class IImage( IAttachment ):
-#   """Interface for Image Attachment implementations"""
+  file_path: str
 
 
 @dataclass( frozen=True )
@@ -150,7 +138,7 @@ class IJobSeeder( ABC ):
   """Interface for job seeders, Translates the JobRequests into JobQueue items."""
 
   @abstractmethod
-  def __init__( self, queue: IQueue ):
+  def __init__( self, queue: IQueue, storage_model: Optional[ IStorageModel ] ):
     pass
 
   @abstractmethod
@@ -168,7 +156,7 @@ class IJobConsumer( ABC ):
   """Interface for job consumers, consumes jobs for workers to work on."""
 
   @abstractmethod
-  def __init__( self, supported_jobs: list[ str ], queue: IQueue, request_callback: JobConsumerCallback, host_id: str ):
+  def __init__( self, supported_jobs: list[ str ], queue: IQueue, storage_model: Optional[ IStorageModel ], request_callback: JobConsumerCallback, host_id: str ):
     """Takes a list of supported_jobs this consumer should consume messages for."""
     pass
 
@@ -196,7 +184,7 @@ class IResponseSeeder( ABC ):
   """Interface for response seeders, wrapper between JobQueue and JobResponse sending"""
 
   @abstractmethod
-  def __init__( self, queue: IQueue ):
+  def __init__( self, queue: IQueue, storage_model: Optional[ IStorageModel ] ):
     pass
 
   @abstractmethod
@@ -222,7 +210,7 @@ class IResponseConsumer( ABC ):
   """Interface for response consumers, consumes responses from workers."""
 
   @abstractmethod
-  def __init__( self, supported_jobs: list[ str ], queue: IQueue, response_callback: ResponseConsumerCallback, host_id: str ):
+  def __init__( self, supported_jobs: list[ str ], queue: IQueue, storage_model: Optional[ IStorageModel ], response_callback: ResponseConsumerCallback, host_id: str ):
     """Takes a list of supported_jobs this consumer should consume response messages for."""
     pass
 
@@ -368,10 +356,11 @@ class JobConsumer( IJobConsumer, IResponseSeeder ):
   _request_callback: JobConsumerCallback
   _host_id: str
 
-  def __init__( self, supported_jobs: list[ str ], queue: IQueue, request_callback: JobConsumerCallback, host_id: str, body_format: str = 'pickle' ):
+  def __init__( self, supported_jobs: list[ str ], queue: IQueue, storage_model: Optional[ IStorageModel ], request_callback: JobConsumerCallback, host_id: str, body_format: str = 'pickle' ):
     self._host_id = host_id
     self._supported_jobs = supported_jobs
     self._queue = queue
+    self._storage_model = storage_model
     self._request_callback = request_callback
     self._body_format = body_format
     self._queue.consume_queues( queue_names=self._get_queue_names(), message_callback=self._handle_consume_callback )
@@ -474,8 +463,9 @@ class JobConsumer( IJobConsumer, IResponseSeeder ):
 class JobSeeder( IJobSeeder ):
   """Default JobSeeder Implementation"""
 
-  def __init__( self, queue: IQueue, body_format: str = 'pickle' ):
+  def __init__( self, queue: IQueue, storage_model: Optional[ IStorageModel ], body_format: str = 'pickle' ):
     self._queue = queue
+    self._storage_model = storage_model
     self._body_format = body_format
 
   def _serialize_obj( self, obj: any ) -> Optional[ str ]:
@@ -508,15 +498,17 @@ class ResponseConsumer( IResponseConsumer ):
   """Default ResponseConsumer implementation"""
   _supported_jobs: list[ str ]
   _queue: IQueue
+  _stoage_model: Optional[ IStorageModel ]
   _response_callback: ResponseConsumerCallback
   _host_id: str
   _body_format: str
 
-  def __init__( self, supported_jobs: list[ str ], queue: IQueue, response_callback: ResponseConsumerCallback, host_id: str, body_format: str = 'pickle' ):
+  def __init__( self, supported_jobs: list[ str ], queue: IQueue, storage_model: Optional[ IStorageModel ], response_callback: ResponseConsumerCallback, host_id: str, body_format: str = 'pickle' ):
     self._host_id = host_id
     self._body_format = body_format
     self._supported_jobs = supported_jobs
     self._queue = queue
+    self._stoage_model = storage_model
     self._response_callback = response_callback
     self._queue.consume_queues( queue_names=self._get_queue_names(), message_callback=self._handle_consume_callback )
     # calculate the list of queue names we need to listen to
@@ -587,8 +579,9 @@ class ResponseConsumer( IResponseConsumer ):
 
 class ResponseSeeder( IResponseSeeder ):
 
-  def __init__( self, queue: IQueue ):
+  def __init__( self, queue: IQueue, storage_model: Optional[ IStorageModel ] ):
     self._queue = queue
+    self._storage_model = storage_model
 
 
 class JobQueueFactory:

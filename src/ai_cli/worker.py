@@ -1,6 +1,7 @@
 from ai_cli.config import AppConfig
 from ai_cli.job_queue import JobLoader, JobConsumer, IQueue, JobRequest, JobResult
 from ai_cli.util import OutputFormatter
+from ai_cli.shared_storage import IStorageModel
 import os
 from rich.console import Console
 from socket import gethostname
@@ -8,11 +9,12 @@ from typing import Optional
 
 class WorkerClient():
 
-  def __init__( self, app_config: AppConfig, queue: IQueue, console: Console ):
+  def __init__( self, app_config: AppConfig, queue: IQueue, storage_model: Optional[ IStorageModel ], console: Console ):
     self.console = console
     self._app_config = app_config
     self._loader = JobLoader()
     self._queue = queue
+    self._storage_model = storage_model
     job_dir = os.path.join( os.path.dirname( __file__ ), '..', '..', 'jobs' )
     self._loaded_jobs = self._loader.load_jobs( job_dir=job_dir, app_config=app_config, console=self.console )
     self._consumer = JobConsumer(

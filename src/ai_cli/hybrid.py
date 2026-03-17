@@ -14,7 +14,7 @@ class HybridClient():
 
   _outstanding_jobs = []
 
-  def __init__( self, app_config: AppConfig, queue: IQueue, storage_model: IStorageModel, console: Console, playbook: Optional[ dict ] = None ):
+  def __init__( self, app_config: AppConfig, queue: IQueue, storage_model: Optional[ IStorageModel ], console: Console, playbook: Optional[ dict ] = None ):
     self.console = console
     self._app_config = app_config
     self._playbook = playbook
@@ -27,13 +27,13 @@ class HybridClient():
       self._loaded_jobs = self._loader.load_jobs( job_dir=job_dir, app_config=app_config, console=self.console )
     if app_config.worker:
       self._job_consumer = JobConsumer(
-        supported_jobs=list( self._loaded_jobs.keys() ), queue=self._queue, request_callback=self._dispatch_request, host_id=gethostname()
+        supported_jobs=list( self._loaded_jobs.keys() ), queue=self._queue, storage_model=self._storage_model, request_callback=self._dispatch_request, host_id=gethostname()
       )
     if app_config.wait_for_result:
       self._response_consumer = ResponseConsumer(
-        queue=self._queue, supported_jobs=list( self._loaded_jobs.keys() ), response_callback=self._dispatch_response, host_id=gethostname()
+        queue=self._queue, supported_jobs=list( self._loaded_jobs.keys() ), storage_model=self._storage_model, response_callback=self._dispatch_response, host_id=gethostname()
       )
-    self._job_seeder = JobSeeder( queue=self._queue )
+    self._job_seeder = JobSeeder( queue=self._queue, storage_model=self._storage_model )
 
   def _mark_job_complete( self, response: JobResponse ):
     for job in list( self._outstanding_jobs ):
