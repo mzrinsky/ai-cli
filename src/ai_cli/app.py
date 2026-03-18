@@ -43,7 +43,11 @@ class App:
       self.console.print(f"Running in role '{self._config.role}' ...")
     if self._config.role == "hybrid":
       self._hybrid = HybridClient(
-        app_config=self._config, queue=self._queue, console=self.console, playbook=self._playbook
+        app_config=self._config,
+        queue=self._queue,
+        console=self.console,
+        playbook=self._playbook,
+        workflow=self._workflow,
       )
       self._hybrid.run()
     elif self._config.role == "worker":
@@ -74,26 +78,36 @@ class App:
     return parser.parse_args()
 
   def _validate_args(self, parsed_args: SimpleNamespace):
-    if parsed_args.job and parsed_args.playbook and parsed_args.workflow:
+    if (
+      (parsed_args.job and parsed_args.playbook and parsed_args.workflow)
+      or ((parsed_args.job or parsed_args.playbook) and parsed_args.workflow)
+      or (parsed_args.job and (parsed_args.playbook or parsed_args.workflow))
+    ):
       self.error_console.print(
-        "Error: You can only specify either a job and playbook, or a workflow, but not both at the same time."
+        "ArgumentError: You can only specify either a 'job' and 'playbook', or a 'workflow', but not both at the same time."
       )
       exit(1)
-    elif (parsed_args.job or parsed_args.playbook) and parsed_args.workflow:
+
+    if parsed_args.workflow and (parsed_args.system_prompt or parsed_args.user_prompt):
       self.error_console.print(
-        "Error: You can only specify either a job and playbook, or a workflow, but not both at the same time."
-      )
-      exit(1)
-    elif parsed_args.job and (parsed_args.playbook or parsed_args.workflow):
-      self.error_console.print(
-        "Error: You can only specify either a job and playbook, or a workflow, but not both at the same time."
+        "ArgumentError: You cannot use 'system_prompt' and 'user_prompt' together with the 'workflow' option."
       )
       exit(1)
 
   def _validate_config(self, config: dict):
-    if config.playbook_file and config.workflow_file:
+    if (
+      (config.job and config.playbook_file and config.workflow_file)
+      or ((config.job or config.playbook_file) and config.workflow_file)
+      or (config.job and (config.playbook_file or config.workflow_file))
+    ):
       self.error_console.print(
-        "Error: You can only specify either a job and playbook, or a workflow, but not both at the same time, verify your config file is not setting a default."
+        "ArgumentError: You can only specify either a job and playbook, or a workflow, but not both at the same time, verify your config file is not setting a default."
+      )
+      exit(1)
+
+    if config.workflow_file and (config.system_prompt or config.user_prompt):
+      self.error_console.print(
+        "ArgumentError: You cannot use 'system_prompt' and 'user_prompt' together with the 'workflow' option."
       )
       exit(1)
 
@@ -102,7 +116,8 @@ class App:
 
     Note:
       This breaks some separation of concerns to increase usability?
-      This might go away some day the use-cases here are not super clear at this point.. needs real-world testing."""
+      This might go away some day the use-cases here are not super clear at this point.. needs real-world testing.
+      The original intent was to allow CLI testing to be as easy as possible."""
     if config.system_prompt:
       if "prompt" not in playbook_data:
         playbook_data["prompt"] = {"system": config.system_prompt}
@@ -112,7 +127,10 @@ class App:
         if isinstance(playbook_data["prompt"]["system"], list):
           playbook_data["prompt"]["system"].extend(config.system_prompt)
         elif isinstance(playbook_data["prompt"]["system"], str):
-          playbook_data["prompt"]["system"] = [playbook_data["prompt"]["system"], *config.system_prompt]
+          playbook_data["prompt"]["system"] = [
+            playbook_data["prompt"]["system"],
+            *config.system_prompt,
+          ]
 
     if (
       "prompt" in playbook_data
@@ -150,7 +168,9 @@ class App:
         if os.path.exists(config_file):
           return open(config_file, "r")
 
-  def _load_config(self, config_file: Optional[TextIOWrapper], parsed_args: SimpleNamespace) -> AppConfig:
+  def _load_config(
+    self, config_file: Optional[TextIOWrapper], parsed_args: SimpleNamespace
+  ) -> AppConfig:
     """Load any config files, apply any command line args, and return an AppConfig"""
     app_config = AppConfig()
     app_config.from_yaml(config_file=config_file, cmd_args=parsed_args)
@@ -182,7 +202,9 @@ class App:
           self.console.print(f"Loading playbook file '{filename}' ...")
         self._playbook = PlaybookLoader.load_playbook(playbook_file=self._config.playbook_file)
         if self._playbook:
-          self._playbook = self._inject_config_into_playbook(config=self._config, playbook_data=self._playbook)
+          self._playbook = self._inject_config_into_playbook(
+            config=self._config, playbook_data=self._playbook
+          )
       if self._config.workflow_file:
         if self._config.verbose:
           if isinstance(self._config.workflow_file, TextIOWrapper):
@@ -191,6 +213,8 @@ class App:
             filename = self._config.workflow_file
           self.console.print(f"Loading workflow file '{filename}' ...")
         self._workflow = WorkflowLoader.load(workflow_file=self._config.workflow_file)
+        if self._config.verbose > 3:
+          self.console.print(self._workflow)
       self.run_client_role()
     except KeyboardInterrupt:
       self.console.print("\nCaught keyboard interrupt. Exiting.")

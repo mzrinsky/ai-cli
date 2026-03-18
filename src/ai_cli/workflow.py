@@ -8,10 +8,10 @@ import yaml_include
 class WorkflowLoader:
   @staticmethod
   def get_jobs(workflow: dict):
-    return list(workflow.keys())
+    return [key for key in workflow.keys() if key not in ['attach', 'name']]
 
   @staticmethod
-  def load(workflow_file: Optional[TextIOWrapper | str] = None):
+  def load(workflow_file: Optional[TextIOWrapper | str] = None) -> dict:
     """Load a YAML workflow file and return the parsed data."""
     if isinstance(workflow_file, str):
       # print( f"PlaybookLoader.load_playbook -> Loading from str {playbook_file}" )

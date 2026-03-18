@@ -1,5 +1,5 @@
 from ai_cli.app import AppConfig
-from ai_cli.job_queue import JobLoader, JobConsumer, ResponseConsumer, JobSeeder, IQueue, JobRequest, JobResponse, JobResult
+from ai_cli.job_queue import JobLoader, JobConsumer, ResponseConsumer, JobSeeder, IQueue, JobRequest, JobResponse
 from ai_cli.util import OutputFormatter
 import os
 from rich.console import Console
@@ -13,10 +13,11 @@ class HybridClient():
 
   _outstanding_jobs = []
 
-  def __init__( self, app_config: AppConfig, queue: IQueue, console: Console, playbook: Optional[ dict ] = None ):
+  def __init__( self, app_config: AppConfig, queue: IQueue, console: Console, playbook: Optional[ dict ] = None, workflow: Optional[ dict ] = None ):
     self.console = console
     self._app_config = app_config
     self._playbook = playbook
+    self._workflow = workflow
     self._loader = JobLoader()
     self._queue = queue
     self._outout_formatter = OutputFormatter( app_config=self._app_config )
@@ -46,7 +47,7 @@ class HybridClient():
       result = self._loaded_jobs[ request.job_name ].run( request=request )
       self._job_consumer.respond_to_request( request=request, result=result )
     else:
-      warnings.warn( f"No loaded jobs match job request, queues may be misconfigured." )
+      warnings.warn( "No loaded jobs match job request, queues may be misconfigured." )
       # TODO: it's safer to dead-letter this right away..?
       self._job_consumer.nack_request( request=request )
 
@@ -69,13 +70,26 @@ class HybridClient():
       self.console.print( "Hybrid Client Running." )
     if self._app_config.job and self._playbook:
       if self._app_config.verbose > 1:
-        self.console.print( f"HybridClient -> sending job request {self._app_config.job}" )
+        self.console.print( f"HybridClient -> sending job request '{self._app_config.job}'" )
       new_job = JobRequest( job_name=self._app_config.job, origin=gethostname(), job_playbook=self._playbook )
       self._outstanding_jobs.append( new_job )
       if self._app_config.verbose:
         self.console.print( f"Seeding job '{new_job.job_name}' to queue ..." )
         self.console.print( Markdown( self._outout_formatter.format( object=new_job ) ) )
       self._job_seeder.send_request( request=new_job )
+    elif self._workflow:
+      if self._app_config.verbose > 1:
+        if "name" in self._workflow:
+          workflow_name = self._workflow["name"]
+        if not workflow_name:
+          workflow_name = self._app_config.workflow_file.name
+        self.console.print( f"HybridClient -> sending workflow request '{workflow_name}'" )
+        new_job = JobRequest( job_name='workflow', origin=gethostname(), job_playbook=self._workflow )
+        self._outstanding_jobs.append(new_job)
+        if self._app_config.verbose:
+          self.console.print( f"Seeding job '{new_job.job_name}' to queue ..." )
+          self.console.print( Markdown( self._outout_formatter.format( object=new_job ) ) )
+        self._job_seeder.send_request( request=new_job )
     if self._app_config.wait_for_result and self._app_config.worker:
       if self._app_config.verbose:
         self.console.print( "Waiting for job result ..." )
