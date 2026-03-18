@@ -50,7 +50,7 @@ class App:
   def _parse_args( self ) -> SimpleNamespace:
     parser = argparse.ArgumentParser(
       description='CLI tool to manage and run AI tasks using a task queue.',
-      epilog='See: https://github.com/mzrinsky/langchain-demos',
+      epilog='See: https://github.com/mzrinsky/ai-cli',
     )
     parser.add_argument( '-V', '--version', action='version', version=VERSION )
     parser.add_argument( '-b', '--no-banner', action='store_true', help="Don't print the l33t banner." )
@@ -58,7 +58,7 @@ class App:
     parser.add_argument( '-c', '--config', required=False, type=argparse.FileType( 'r' ), help="A yaml application config file." )
     parser.add_argument( '-i', '--host-id', required=False, help='Name to use for host id' )
     parser.add_argument( '-r', '--role', choices=[ 'worker', 'logger', 'seeder', 'hybrid' ], required=False )
-    parser.add_argument( '-p', '--playbook', required=False, type=argparse.FileType( 'r' ), help='Playbook to use' )
+    parser.add_argument( '-w', '--workflow', required=False, type=argparse.FileType( 'r' ), help='Workflow to use' )
     parser.add_argument( '-j', '--job', required=False, help='Name of job to use default is invoke_llm' )
     parser.add_argument( '-s', '--system-prompt', required=False, help='System prompt to use with invoke_llm job' )
     parser.add_argument( '-u', '--user-prompt', required=False, help='User prompt to use with invoke_llm job' )

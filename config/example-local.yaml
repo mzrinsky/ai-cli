@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=https://json.schemastore.org/yamllint.json
 ---
+# This is an ai-cli.py config file exmaple
+# For running ai-cli.py with local shared memeory queue
+# It runs a single workflow
 no_banner: True
 
 # the verbosity of the client
@@ -12,16 +15,15 @@ role: "hybrid"
 # the default is 'none', which is a local-only, non-shared, in-memory queue.
 queue_backend: "none"
 
-# any job this client should seed (publish)
-job: "invoke_llm"
+# any workflows that should be run
+workflow:
+ - "workflows/example-invoke-llm-pirate.yaml"
 
-# the playbook containing the any details for the job
-playbook: "playbooks/example-invoke-llm-pirate.yaml"
-
-# this matches the playbook format for prompt..
-# this allows adding additional prompts to the playbook + command line prompts for convenience.
+# this breaks some seperation for usability.
+# I think it is useful to be able to pass the system and user prompts on the CLI for testing etc.
+# so this is here too even though it can / should be in a workflow?
 prompt:
   # additional llm system prompt
-  system: "Start and end each response with a random emoji."
+  system: "Wrap each response with a random emoji."
   # additional llm user prompt (optional)
   user: ""

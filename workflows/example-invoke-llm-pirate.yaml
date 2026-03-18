@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://json.schemastore.org/yamllint.json
+---
+name: Invoke LLM Example Workflow
+
+# this is the name of the job
+invoke_llm: !Inc mcp/fetch.yaml
+  # the rest of the config here is considered the playbook for the job
+  # in this case it is being included from an external playbook.
+  
