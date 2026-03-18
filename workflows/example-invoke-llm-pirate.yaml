@@ -3,7 +3,7 @@
 name: Invoke LLM Example Workflow
 
 # this is the name of the job
-invoke_llm: !Inc mcp/fetch.yaml
+invoke_llm: !Inc playbooks/example-invoke-llm-pirate.yaml
   # the rest of the config here is considered the playbook for the job
   # in this case it is being included from an external playbook.
   

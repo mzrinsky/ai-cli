@@ -6,7 +6,7 @@ attach:
 # list of files to be attached to all jobs in this workflow?
 
 # this is the name of the job to run
-invoke_llm:
+invoke_llm: 
   # the rest of the config here is considered the playbook for the job
   # the details of the LLM model to run
   model:
