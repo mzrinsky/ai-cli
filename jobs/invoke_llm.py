@@ -201,7 +201,10 @@ class InvokeLlm( IJob ):
     user_prompt = ""
     # start with prompt from the playbook if any
     if "user" in self._request.job_playbook[ "prompt" ]:
-      user_prompt = "\n".join( self._request.job_playbook[ "prompt" ][ "user" ] )
+      if isinstance(self._request.job_playbook["prompt"]["user"], list):
+        user_prompt = "\n".join(self._request.job_playbook["prompt"]["user"])
+      else:
+        user_prompt = self._request.job_playbook["prompt"]["user"]
     # append any prompt from local config file.. ?
     # if "prompt" in app_config and app_config[ "prompt" ]:
     #   if user_prompt:

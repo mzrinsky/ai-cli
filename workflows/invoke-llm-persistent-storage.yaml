@@ -19,7 +19,7 @@ invoke_llm:
   # the prompts to run
   prompt:
     system: ""
-    user: ""
+    user: "Tell me the current time"
 
   # which tools to load and make available (tool loading happens on the worker)
   # these are all different ways of controlling which tools are loaded and made available to the llm
