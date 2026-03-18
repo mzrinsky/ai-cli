@@ -217,7 +217,7 @@ class JobLoader():
   """A default JobLoader implementation that loads python jobs from disk that implement the IJob interface."""
 
   @staticmethod
-  def load_jobs( job_dir: str, app_config: dict, console: any ) -> dict[ str, 'IJob' ]:
+  def load_jobs( job_dir: str, app_config: dict, console: any, exclude: list[str] = []) -> dict[ str, 'IJob' ]:
     # try to find a job directory..
     if not os.path.exists( job_dir ):
       if not os.path.isabs( job_dir ):
@@ -229,32 +229,53 @@ class JobLoader():
       else:
         raise FileNotFoundError( f"The directory '{job_dir}' is not found." )
 
+    if app_config.verbose > 3:
+      console.print(f"Loading jobs from '{job_dir}'")
     # load any .py files we find in job_dir
     jobs = {}
     for filename in os.listdir( job_dir ):
-      if filename.endswith( '.py' ):
+      if filename.endswith( '.py' ) and not filename.endswith('__init__.py'):
         filepath = os.path.join( job_dir, filename )
         module_name = os.path.basename( filename )[ :-3 ]
-        try:
-          spec = spec_from_file_location( module_name, filepath )
-          module = module_from_spec( spec )
-          sys.modules[ module_name ] = module
-          spec.loader.exec_module( module )
+        already_loaded = module_name in sys.modules
+        if app_config.verbose > 3:
+          console.print(f"Found module: '{module_name}' Already Loaded: {already_loaded}")
 
-          # convert filename into classname
-          class_name = JobLoader._to_camel_case( module_name )
-          if hasattr( module, class_name ):
-            # if the loaded file class matches what we expect, and is an instance of IJob
-            cls = getattr( module, class_name )
-            if issubclass( cls, IJob ) and cls != IJob:
-              # keep track of this job instance
-              jobs[ module_name ] = cls( app_config=app_config, console=console )
+        try:
+          module = None
+          if not already_loaded:
+            spec = spec_from_file_location( module_name, filepath )
+            module = module_from_spec( spec )
+            spec.loader.exec_module( module )
+            sys.modules[ module_name ] = module
+            if app_config.verbose > 3:
+              console.print(f"Loaded module: '{module_name}' from '{filepath}'")
           else:
-            # unregister this module, as it's not a job
-            del sys.modules[ module_name ]
+            module = sys.modules[ module_name ]
+
+          if app_config.verbose > 3:
+            if module_name in exclude:
+              console.print(f"Skipping module: '{module_name}' Reason: in exclude list.")
+
+          if module_name not in exclude:
+            # convert filename into classname
+            class_name = JobLoader._to_camel_case( module_name )
+            if hasattr( module, class_name ):
+              # if the loaded file class matches what we expect, and is an instance of IJob
+              cls = getattr( module, class_name )
+              if issubclass( cls, IJob ) and cls != IJob:
+                # keep track of this job instance
+                jobs[ module_name ] = cls( app_config=app_config, console=console )
+            else:
+              if app_config.verbose > 3:
+                console.print(f"Module '{module}' lacks attr '{class_name}'")
+              if not already_loaded:
+                # unregister this module, as it's not a job
+                del sys.modules[ module_name ]
 
         except Exception as e:
-          del sys.modules[ module_name ]
+          if not already_loaded:
+            del sys.modules[ module_name ]
           raise Exception( f"Error Loading Job {module_name}: {str(e)}" )
 
     return jobs
