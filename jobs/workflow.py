@@ -19,7 +19,7 @@ class Workflow(IJob):
     self._app_config = app_config
     self._console = console
     self._loader = JobLoader()
-    # we want to get our own copy of the loaded jobs, exluding outself (or it will be a circular reference)
+    # we want to get our own copy of the loaded jobs, excluding ourself (or it will be a circular reference)
     job_dir = os.path.dirname(__file__)
     self._loaded_jobs = self._loader.load_jobs(
       job_dir=job_dir, app_config=app_config, console=self._console, exclude=["workflow"]
@@ -55,7 +55,7 @@ class Workflow(IJob):
       # we run it the same way the WorkerClient or HybridClient does..
       result = self._loaded_jobs[job_name].run(request=new_request)
       # Here there needs to be a better system..
-      # I think it needs to return a list of JobResults.. so something needs a litte refactor in the response pipeline.
+      # I think it needs to return a list of JobResults.. so something needs a little refactor in the response pipeline.
       self._output.append(f"Job '{job_name}' returned result: {result}")
 
     # for now we just return a new JobResult with all the output combined so we can see it worked.
