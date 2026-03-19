@@ -41,7 +41,7 @@ class IJobResponse(ABC):
   request_origin: str
   response_origin: str
   response_dest: str
-  result: IJobResult
+  result: list[IJobResult]
   message_id: Optional[str]
   ack_id: Optional[str]
 
@@ -342,7 +342,7 @@ class JobResponse(IJobResponse):
   job_name: str
   request_origin: str
   response_origin: str
-  result: IJobResult
+  result: list[IJobResult]
   response_dest: Optional[str]
   message_id: Optional[str] = field(default_factory=uuid4)
   ack_id: Optional[str] = None
@@ -426,13 +426,23 @@ class JobConsumer(IJobConsumer, IResponseSeeder):
   def nack_request(self, request: IJobRequest):
     self._queue.ack_message(ack_id=request.ack_id)
 
-  def respond_to_request(self, request: IJobRequest, result: IJobResult):
+  def respond_to_request(self, request: IJobRequest, result: list[IJobResult]):
     new_response = self.create_response(request=request, result=result)
     # print( f"JobConsumer.respond_to_request -> Request: {request}" )
     self.send_response(response=new_response)
     self.ack_request(request=request)
 
-  def create_response(self, request: IJobRequest, result: IJobResult) -> IJobResponse:
+  def create_response(self, request: IJobRequest, result: list[IJobResult]) -> IJobResponse:
+    if isinstance(result, IJobResult):
+      result = [result]
+
+    if not isinstance(result, list):
+      raise TypeError("'result' is expected to be a list of IJobResult objects.")
+
+    for item in result:
+      if not isinstance(item, IJobResult):
+        raise TypeError(f"All items in result must be IJobResult objects, found {type(item)}")
+
     return JobResponse(
       request_message_id=request.message_id,
       job_name=request.job_name,

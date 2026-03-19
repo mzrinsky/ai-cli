@@ -40,6 +40,8 @@ class Workflow(IJob):
     # but currently it is doing all work for a workflow on the same worker
     # so that any files only need to be sync'd to one worker, this could change though.
 
+    job_results = []
+
     # Iterate through each workflow job
     for workflow_job in workflow_jobs:
       # Iterate through each key-value pair in the workflow job
@@ -57,9 +59,8 @@ class Workflow(IJob):
         )
         # we run it the same way the WorkerClient or HybridClient does..
         result = self._loaded_jobs[job_name].run(request=new_request)
-        # Here there needs to be a better system..
-        # I think it needs to return a list of JobResults.. so something needs a little refactor in the response pipeline.
+        job_results.append(result)
+
         self._output.append(f"Job '{job_name}' returned result: {result}")
 
-    # for now we just return a new JobResult with all the output combined so we can see it worked.
-    return JobResult(value="\n".join(self._output))
+    return job_results
