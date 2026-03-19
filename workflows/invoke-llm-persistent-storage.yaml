@@ -38,7 +38,6 @@ workflow:
 
       # which MCP servers to make available
       mcp:
-        chroma: !Inc mcp/docker-chroma-client.yaml
 
       attach:
         # list of files to be attached to this job
