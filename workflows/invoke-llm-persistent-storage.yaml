@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://json.schemastore.org/yamllint.json
+---
+name: Invoke LLM Persistent Storage Workflow
+
+# list of files to be attached to all jobs in this workflow?
+attach:
+
+# This is the list of jobs that will be run.
+workflow:
+
+  - echo: "any data here will be returned as a test"
+
+  - echo:
+      test: 1
+      foo: "bar"
+
+  # this is the name of the job to run
+  - invoke_llm: 
+      # the rest of the config here is considered the playbook for the job
+      # the details of the LLM model to run
+      model:
+        provider: ollama
+        init_args:
+          model: qwen3:latest
+          temperature: 0.8
+          reasoning: True
+
+      # the prompts to run
+      prompt:
+        system: ""
+        user: "Tell me the current time"
+
+      # which tools to load and make available (tool loading happens on the worker)
+      # these are all different ways of controlling which tools are loaded and made available to the llm
+      tools:
+        # load all tools in the tools/ dir..
+        - glob: tools/*.py
+
+      # which MCP servers to make available
+      mcp:
+
+      attach:
+        # list of files to be attached to this job
+    

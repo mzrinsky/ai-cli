@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from io import TextIOWrapper
 from socket import gethostname
 import yaml
-import warnings
 
 
 @dataclass
@@ -19,19 +18,22 @@ class AppConfig:
   queue_backend: str = 'none'
   # any init args to pass to the queue
   queue_backend_options: Optional[ dict ] = None
-  # a job to seed (publish) upon starting
-  job: Optional[ str ] = 'invoke_llm'
   # control hybrid client behavior
   wait_for_result: bool = True  # wait for results (Result Consumer)
   worker: bool = True  # work on jobs locally (Job Consumer)
+  # a job to seed (publish) upon starting
+  job: Optional[ str ] = None
   # the playbook file containing details for the job invocation
   playbook_file: Optional[ str | TextIOWrapper ] = None
+  # a workflow file containing jobs & playbooks
+  workflow_file: Optional[ str | TextIOWrapper ] = None
   # contains system prompts from the config file + command line
   system_prompt: Optional[ list[ str ] ] = None
   # contains user prompts from the config file + command line
   user_prompt: Optional[ list[ str ] ] = None
   # the config file that was loaded with app-level config options
   config_file: Optional[ str | TextIOWrapper ] = None
+  # if we should print the l33t banner
   no_banner: bool = False
 
   def from_yaml( self, config_file: Optional[ str | TextIOWrapper ] = None, cmd_args: Optional[ SimpleNamespace ] = None ):
@@ -89,6 +91,9 @@ class AppConfig:
       if cmd_args.playbook:
         self.playbook_file = cmd_args.playbook
 
+      if cmd_args.workflow:
+        self.workflow_file = cmd_args.workflow
+
       if cmd_args.role:
         self.role = cmd_args.role
 
@@ -104,7 +109,7 @@ class AppConfig:
       if cmd_args.verbose:
         self.verbose = cmd_args.verbose
 
-    if self.queue_backend == 'none' and self.worker == False:
+    if self.queue_backend == 'none' and not self.worker:
       raise ValueError(
         "Cannot run a local-only non-shared in-memory queue with no worker, if you do not want a local worker use rabbitmq queue type, if you do not want rabbitmq you need to use local worker."
       )

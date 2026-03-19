@@ -1,8 +1,3 @@
-# yaml-language-server: $schema=https://json.schemastore.org/yamllint.json
----
-name: Invoke LLM Example Playbook
-version: 1.0.0
-schema_version: 1.0.0
 
 # the details of the LLM model to run
 model:
@@ -24,10 +19,10 @@ tools:
   - name: scan_nmap
     path: tools/scan_nmap.py
   # or from an include
-  - !Inc tools/ping.yaml
+  - !Inc ../tools/ping.yaml
   # or load all the tools in a dir (and use the file names as the tool name)s.py
   - glob: tools/*.py
 
 # which MCP servers to make available
 mcp:
-  fetch: !Inc mcp/fetch.yaml
+  fetch: !Inc ../mcp/fetch.yaml

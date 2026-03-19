@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://json.schemastore.org/yamllint.json
+---
+name: Invoke LLM Example Workflow
+
+workflow:
+  # this is the name of the job
+  - invoke_llm: !Inc playbooks/example-invoke-llm-pirate.yaml
+    # the rest of the config here is considered the playbook for the job
+    # in this case it is being included from an external playbook.
+  
