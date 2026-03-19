@@ -191,10 +191,13 @@ class InvokeLlm( IJob ):
     system_prompt = ""
     # start with prompt from the playbook if any
     if "system" in self._request.job_playbook[ "prompt" ]:
+      system_prompt_content = self._request.job_playbook[ "prompt" ][ "system" ]
+      if isinstance( system_prompt_content, list ):
+        system_prompt_content = "\n".join( system_prompt_content )
       if system_prompt:
-        system_prompt = system_prompt + "\n" + "\n".join( self._request.job_playbook[ "prompt" ][ "system" ] )
+        system_prompt = system_prompt + "\n" + system_prompt_content
       else:
-        system_prompt = "\n".join( self._request.job_playbook[ "prompt" ][ "system" ] )
+        system_prompt = system_prompt_content
     return system_prompt
 
   def _generate_user_prompt( self ) -> str:
