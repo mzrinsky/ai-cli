@@ -31,32 +31,35 @@ class Workflow(IJob):
     # when running workflows, the job_playbook is the workflow data..
     # we use the helper method to get the list of jobs from the workflow data
     workflow_data = request.job_playbook
-    job_list = WorkflowLoader.get_jobs(workflow=workflow_data)
 
-    self._output.append(f"Found workflow job list: {job_list}")
     self._output.append(f"Loaded Jobs: {self._loaded_jobs}")
 
-    # run all the jobs in the workflow..
-    for job_name in job_list:
-      # this "could" re-queue the messages for another worker..
-      # but currently it is doing all work for a workflow on the same worker
-      # so that any files only need to be sync'd to one worker, this could change though.
+    workflow_jobs = workflow_data["workflow"]
 
-      # make a new JobRequest, with the same details as our current workflow JobRequest.
-      # but now running the actual workflow job with it's playbook data.
-      new_request = JobRequest(
-        job_name=job_name,
-        origin=request.origin,
-        job_playbook=workflow_data[job_name],
-        response_dest=request.response_dest,
-        message_id=request.message_id,
-        ack_id=request.ack_id,
-      )
-      # we run it the same way the WorkerClient or HybridClient does..
-      result = self._loaded_jobs[job_name].run(request=new_request)
-      # Here there needs to be a better system..
-      # I think it needs to return a list of JobResults.. so something needs a little refactor in the response pipeline.
-      self._output.append(f"Job '{job_name}' returned result: {result}")
+    # this "could" re-queue the messages for another worker..
+    # but currently it is doing all work for a workflow on the same worker
+    # so that any files only need to be sync'd to one worker, this could change though.
+
+    # Iterate through each workflow job
+    for workflow_job in workflow_jobs:
+      # Iterate through each key-value pair in the workflow job
+      for job_name, job_playbook in workflow_job.items():
+        # Process each key-value pair here
+        # make a new JobRequest, with the same details as our current workflow JobRequest.
+        # but now running the actual workflow job with it's playbook data.
+        new_request = JobRequest(
+          job_name=job_name,
+          origin=request.origin,
+          job_playbook=job_playbook,
+          response_dest=request.response_dest,
+          message_id=request.message_id,
+          ack_id=request.ack_id,
+        )
+        # we run it the same way the WorkerClient or HybridClient does..
+        result = self._loaded_jobs[job_name].run(request=new_request)
+        # Here there needs to be a better system..
+        # I think it needs to return a list of JobResults.. so something needs a little refactor in the response pipeline.
+        self._output.append(f"Job '{job_name}' returned result: {result}")
 
     # for now we just return a new JobResult with all the output combined so we can see it worked.
     return JobResult(value="\n".join(self._output))

@@ -2,35 +2,44 @@
 ---
 name: Invoke LLM Persistent Storage Workflow
 
-attach:
 # list of files to be attached to all jobs in this workflow?
+attach:
 
-# this is the name of the job to run
-invoke_llm: 
-  # the rest of the config here is considered the playbook for the job
-  # the details of the LLM model to run
-  model:
-    provider: ollama
-    init_args:
-      model: qwen3:latest
-      temperature: 0.8
-      reasoning: True
+# This is the list of jobs that will be run.
+workflow:
 
-  # the prompts to run
-  prompt:
-    system: ""
-    user: "Tell me the current time"
+  - echo: "any data here will be returned as a test"
 
-  # which tools to load and make available (tool loading happens on the worker)
-  # these are all different ways of controlling which tools are loaded and made available to the llm
-  tools:
-    # load all tools in the tools/ dir..
-    - glob: tools/*.py
+  - echo:
+      test: 1
+      foo: "bar"
 
-  # which MCP servers to make available
-  mcp:
-    chroma: !Inc mcp/docker-chroma-client.yaml
+  # this is the name of the job to run
+  - invoke_llm: 
+      # the rest of the config here is considered the playbook for the job
+      # the details of the LLM model to run
+      model:
+        provider: ollama
+        init_args:
+          model: qwen3:latest
+          temperature: 0.8
+          reasoning: True
 
-  attach:
-    # list of files to be attached to this job
-  
+      # the prompts to run
+      prompt:
+        system: ""
+        user: "Tell me the current time"
+
+      # which tools to load and make available (tool loading happens on the worker)
+      # these are all different ways of controlling which tools are loaded and made available to the llm
+      tools:
+        # load all tools in the tools/ dir..
+        - glob: tools/*.py
+
+      # which MCP servers to make available
+      mcp:
+        chroma: !Inc mcp/docker-chroma-client.yaml
+
+      attach:
+        # list of files to be attached to this job
+    
