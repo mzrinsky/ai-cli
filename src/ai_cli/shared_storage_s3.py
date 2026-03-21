@@ -3,7 +3,7 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
-from typing import List, Optional
+from typing import List, Optional, Generator, BinaryIO
 from shared_storage import IStorageModel, FileAttachment, StoredFile
 import boto3
 from botocore.client import Config
@@ -123,3 +123,17 @@ class StorageModelS3(IStorageModel):
     bucket.objects.filter(Prefix=remote_path).delete()
     # this deletes any versioned files with that prefix
     bucket.object_versions.filter(Prefix=remote_path).delete()
+
+  def open(self, stored_file: StoredFile) -> Generator[BinaryIO, None, None]:
+    """Return a context manager for a local file handle.
+
+    This should be used with a 'with' statement to ensure proper
+    resource management.
+
+    Example:
+        with storage_model.local_fh(stored_file) as fh:
+            fh.read()
+            fh.write(data)"""
+    local_path = os.path.join(self._local_storage_path, stored_file.remote_path)
+    with open(local_path, "rb") as f:
+      yield f

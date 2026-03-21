@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Generator, BinaryIO
 from uuid import uuid4
 
 
@@ -14,7 +14,6 @@ class FileAttachment(ABC):
 
   def __init__(self, file_path: str):
     self._handle_update(file_path=file_path)
-
 
   def _handle_update(self, file_path: str, remote_path_prefix: Optional[str] = None) -> None:
     self._file_path = file_path
@@ -33,7 +32,7 @@ class FileAttachment(ABC):
   @property
   def remote_path_prefix(self) -> Optional[str]:
     return self._remote_path_prefix
-  
+
   @remote_path_prefix.setter
   def remote_path_prefix(self, remote_path_prefix: Optional[str]):
     self._remote_path_prefix = remote_path_prefix
@@ -107,7 +106,9 @@ class IStorageModel(ABC):
     pass
 
   @abstractmethod
-  def batch_download(self, remote_path: List[str], stored_file: List[StoredFile]) -> List[StoredFile]:
+  def batch_download(
+    self, remote_path: List[str], stored_file: List[StoredFile]
+  ) -> List[StoredFile]:
     pass
 
   @abstractmethod
@@ -116,6 +117,11 @@ class IStorageModel(ABC):
 
   @abstractmethod
   def delete_prefix(self, remote_path: str):
+    pass
+
+  @abstractmethod
+  def open(self, stored_file: StoredFile) -> Generator[BinaryIO, None, None]:
+    """Return a context manager for a local file handle."""
     pass
 
 
@@ -127,6 +133,7 @@ class StorageModelFactory:
   def create(provider: str, init_args: dict) -> IStorageModel:
     if provider == "s3":
       from shared_storage_s3 import StorageModelS3
+
       return StorageModelS3(**init_args)
 
     raise ValueError(f"Unknown storage model provider: {provider}")
