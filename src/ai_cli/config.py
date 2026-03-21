@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional
-from types import SimpleNamespace
+from argparse import Namespace
 from io import TextIOWrapper
 from socket import gethostname
 import yaml
@@ -36,7 +36,7 @@ class AppConfig:
   # if we should print the l33t banner
   no_banner: bool = False
 
-  def from_yaml( self, config_file: Optional[ str | TextIOWrapper ] = None, cmd_args: Optional[ SimpleNamespace ] = None ):
+  def from_yaml( self, config_file: Optional[ str | TextIOWrapper ] = None, cmd_args: Optional[ Namespace ] = None ):
 
     # load items from config file..
     if isinstance( config_file, str ):

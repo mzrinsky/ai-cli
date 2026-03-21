@@ -6,6 +6,7 @@ import sys
 import os
 import re
 import pickle
+import base64
 from importlib.util import spec_from_file_location, module_from_spec
 from datetime import datetime
 from uuid import uuid4
@@ -17,7 +18,7 @@ class IJobRequest(ABC):
 
   job_name: str
   origin: str
-  job_playbook: str
+  job_playbook: dict
   response_dest: Optional[str]
   message_id: Optional[str]
   ack_id: Optional[str]
@@ -40,7 +41,7 @@ class IJobResponse(ABC):
   request_message_id: str
   request_origin: str
   response_origin: str
-  response_dest: str
+  response_dest: Optional[str]
   result: list[IJobResult]
   message_id: Optional[str]
   ack_id: Optional[str]
@@ -305,7 +306,7 @@ class QueueMessage(IQueueMessage):
   type: str
   context: str
   created: str = field(default_factory=lambda: datetime.now().isoformat())
-  message_id: Optional[str] = field(default_factory=uuid4)
+  message_id: Optional[str] = field(default_factory=lambda: str(uuid4()))
   ack_id: Optional[str] = None
   reply_to: Optional[str] = None
   dest_queue: Optional[str] = None
@@ -320,7 +321,7 @@ class JobRequest(IJobRequest):
   origin: str
   job_name: str
   job_playbook: str
-  message_id: Optional[str] = field(default_factory=uuid4)
+  message_id: Optional[str] = field(default_factory=lambda: str(uuid4()))
   ack_id: Optional[str] = None
   response_dest: Optional[str] = None
 
@@ -344,7 +345,7 @@ class JobResponse(IJobResponse):
   response_origin: str
   result: list[IJobResult]
   response_dest: Optional[str]
-  message_id: Optional[str] = field(default_factory=uuid4)
+  message_id: Optional[str] = field(default_factory=lambda: str(uuid4()))
   ack_id: Optional[str] = None
 
 
@@ -373,20 +374,20 @@ class JobConsumer(IJobConsumer, IResponseSeeder):
       queue_names=self._get_queue_names(), message_callback=self._handle_consume_callback
     )
 
-  def _serialize_obj(self, obj: any) -> Optional[str]:
+  def _serialize_obj(self, obj: Any) -> Optional[str]:
     serialized_obj = None
     if self._body_format == "pickle":
-      serialized_obj = pickle.dumps(obj)
+      serialized_obj = str(base64.b64encode(pickle.dumps(obj)))
     elif self._body_format == "json":
       serialized_obj = json.dumps(obj)
     else:
       raise Exception(f"Unsupported serialization format: {self._body_format}")
     return serialized_obj
 
-  def _deserialize_obj(self, serialized_obj: str) -> Optional[any]:
+  def _deserialize_obj(self, serialized_obj: str) -> Optional[Any]:
     deserialized_obj = None
     if self._body_format == "pickle":
-      deserialized_obj = pickle.loads(serialized_obj)
+      deserialized_obj = pickle.loads(base64.b64decode(serialized_obj))
     elif self._body_format == "json":
       deserialized_obj = json.loads(serialized_obj)
     else:
@@ -410,7 +411,7 @@ class JobConsumer(IJobConsumer, IResponseSeeder):
     decoded_message_body = self._deserialize_obj(serialized_obj=message.body)
     return JobRequest(
       job_name=message.context,
-      origin=message.origin_host_id,
+      origin=message.origin_host_id if message.origin_host_id else "",
       job_playbook=decoded_message_body,
       message_id=message.reply_to
       if message.reply_to and message.reply_to != "None"

@@ -7,7 +7,6 @@ from ai_cli.playbook import PlaybookLoader
 from ai_cli.workflow import WorkflowLoader
 from ai_cli.worker import WorkerClient
 from ai_cli.hybrid import HybridClient
-from types import SimpleNamespace
 from typing import Optional
 from io import TextIOWrapper
 
@@ -56,7 +55,7 @@ class App:
     else:
       raise Exception(f"Unsupported client role '{self._config.role}'")
 
-  def _parse_args(self) -> SimpleNamespace:
+  def _parse_args(self) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
       description="CLI tool to manage and run AI tasks using a task queue.",
       epilog="See: https://github.com/mzrinsky/ai-cli",
@@ -77,7 +76,7 @@ class App:
 
     return parser.parse_args()
 
-  def _validate_args(self, parsed_args: SimpleNamespace):
+  def _validate_args(self, parsed_args: argparse.Namespace):
     if (
       (parsed_args.job and parsed_args.playbook and parsed_args.workflow)
       or ((parsed_args.job or parsed_args.playbook) and parsed_args.workflow)
@@ -94,7 +93,7 @@ class App:
       )
       exit(1)
 
-  def _validate_config(self, config: dict):
+  def _validate_config(self, config: AppConfig):
     if (
       (config.job and config.playbook_file and config.workflow_file)
       or ((config.job or config.playbook_file) and config.workflow_file)
@@ -135,9 +134,10 @@ class App:
     if (
       "prompt" in playbook_data
       and "system" in playbook_data["prompt"]
-      and not isinstance(playbook_data["prompt"]["system"], list)
     ):
-      playbook_data["prompt"]["system"] = [playbook_data["prompt"]["system"]]
+      system_data = playbook_data["prompt"]["system"]
+      if not isinstance(system_data, list):
+        playbook_data["prompt"]["system"] = [system_data]
 
     if config.user_prompt:
       if "prompt" not in playbook_data:
@@ -153,13 +153,14 @@ class App:
     if (
       "prompt" in playbook_data
       and "user" in playbook_data["prompt"]
-      and not isinstance(playbook_data["prompt"]["user"], list)
     ):
-      playbook_data["prompt"]["user"] = [playbook_data["prompt"]["user"]]
+      user_data = playbook_data["prompt"]["user"]
+      if not isinstance(user_data, list):
+        playbook_data["prompt"]["user"] = [user_data]
 
     return playbook_data
 
-  def _lookup_config_file(self, parsed_args: SimpleNamespace) -> Optional[TextIOWrapper]:
+  def _lookup_config_file(self, parsed_args: argparse.Namespace) -> Optional[TextIOWrapper]:
     if parsed_args.config:
       return parsed_args.config
     else:
@@ -169,7 +170,7 @@ class App:
           return open(config_file, "r")
 
   def _load_config(
-    self, config_file: Optional[TextIOWrapper], parsed_args: SimpleNamespace
+    self, config_file: Optional[TextIOWrapper], parsed_args: argparse.Namespace
   ) -> AppConfig:
     """Load any config files, apply any command line args, and return an AppConfig"""
     app_config = AppConfig()
@@ -188,7 +189,7 @@ class App:
       if not self._config.no_banner:
         self.console.print(self.l33t_header)
       if self._config.config_file and self._config.verbose:
-        self.console.print(f"Loading config file '{self._config.config_file.name}' ...")
+        self.console.print(f"Loading config file '{self._config.config_file}' ...")
       elif self._config.verbose:
         self.console.print("No config file specified, and default not found.")
       if self._config.verbose > 3:

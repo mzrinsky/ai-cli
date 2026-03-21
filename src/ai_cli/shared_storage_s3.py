@@ -131,9 +131,8 @@ class StorageModelS3(IStorageModel):
     resource management.
 
     Example:
-        with storage_model.local_fh(stored_file) as fh:
-            fh.read()
-            fh.write(data)"""
+        with storage_model.open(stored_file) as fh:
+            fh.read()"""
     local_path = os.path.join(self._local_storage_path, stored_file.remote_path)
     with open(local_path, "rb") as f:
       yield f
