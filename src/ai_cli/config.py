@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, BinaryIO
 from argparse import Namespace
 from io import TextIOWrapper
 from socket import gethostname
@@ -18,6 +18,12 @@ class AppConfig:
   queue_backend: str = 'none'
   # any init args to pass to the queue
   queue_backend_options: Optional[ dict ] = None
+  # the storage backend to use
+  storage_backend: str = 'none'
+  # any init args to pass to the storage backend
+  storage_backend_options: Optional[ dict ] = None
+  # attachments..
+  attachments: list[ BinaryIO ] = field( default_factory=list )
   # control hybrid client behavior
   wait_for_result: bool = True  # wait for results (Result Consumer)
   worker: bool = True  # work on jobs locally (Job Consumer)
@@ -108,6 +114,9 @@ class AppConfig:
 
       if cmd_args.verbose:
         self.verbose = cmd_args.verbose
+
+      if len(cmd_args.attachments):
+        self.attachments = cmd_args.attachments
 
     if self.queue_backend == 'none' and not self.worker:
       raise ValueError(

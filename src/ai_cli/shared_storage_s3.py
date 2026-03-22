@@ -1,10 +1,9 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
-
 from typing import List, Optional, Generator, BinaryIO
 from shared_storage import IStorageModel, FileAttachment, StoredFile
+
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError

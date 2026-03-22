@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional, Protocol
 from ai_cli.config import AppConfig
+from ai_cli.shared_storage import StoredFile
 import json
 import sys
 import os
@@ -21,9 +22,10 @@ class IJobRequest(ABC):
   job_name: str
   origin: str
   job_playbook: dict
-  response_dest: Optional[str]
-  message_id: str
-  ack_id: Optional[str]
+  message_id: str = field(default_factory=lambda: str(uuid4()))
+  ack_id: Optional[str] = None
+  response_dest: Optional[str] = None
+  stored_files: Optional[list[StoredFile]] = None
 
 
 @dataclass(frozen=True)
@@ -316,7 +318,6 @@ class QueueMessage(IQueueMessage):
   origin_host_id: Optional[str] = None
 
 
-@dataclass(frozen=True)
 class JobRequest(IJobRequest):
   """A default JobRequest Implementation."""
 
@@ -326,6 +327,7 @@ class JobRequest(IJobRequest):
   message_id: str = field(default_factory=lambda: str(uuid4()))
   ack_id: Optional[str] = None
   response_dest: Optional[str] = None
+  stored_files: Optional[list[StoredFile]] = None
 
 
 @dataclass(frozen=True)

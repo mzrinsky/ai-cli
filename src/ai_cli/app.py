@@ -7,6 +7,7 @@ from ai_cli.playbook import PlaybookLoader
 from ai_cli.workflow import WorkflowLoader
 from ai_cli.worker import WorkerClient
 from ai_cli.hybrid import HybridClient
+from ai_cli.shared_storage import StorageModelFactory, IStorageModel, FileAttachment, StoredFile
 from typing import Optional
 from io import TextIOWrapper
 
@@ -34,16 +35,37 @@ class App:
       queue_type=self._config.queue_backend, init_args=self._config.queue_backend_options
     )
 
+  def _init_storage_model(self) -> IStorageModel:
+    return StorageModelFactory.create(
+      provider=self._config.storage_backend,
+      init_args=self._config.storage_backend_options if self._config.storage_backend_options else {},
+    )
+
+  def _get_stored_files(self) -> list[StoredFile]:
+    stored_files = []
+    for attachment in self._file_attachments:
+      stored_file = self._storage_model.upload(attachment=attachment)
+      stored_files.append(stored_file)
+    return stored_files
+
   def run_client_role(self):
     if self._config.verbose > 1:
       self.console.print("Initializing queue ...")
     self._queue = self._init_queue()
+    if self._config.verbose > 1:
+      self.console.print(f"Initializing storage model '{self._config.storage_backend}' ...")
+    self._storage_model = self._init_storage_model()
+    if self._config.verbose > 1:
+      self.console.print(f"Creating StoredFiles from {len(self._file_attachments)} FileAttachments")
+    self._stored_files = self._get_stored_files()
     if self._config.verbose > 1:
       self.console.print(f"Running in role '{self._config.role}' ...")
     if self._config.role == "hybrid":
       self._hybrid = HybridClient(
         app_config=self._config,
         queue=self._queue,
+        storage_model=self._storage_model,
+        stored_files=self._stored_files,
         console=self.console,
         playbook=self._playbook,
         workflow=self._workflow,
@@ -72,6 +94,7 @@ class App:
     parser.add_argument( '-w', '--workflow', required=False, type=argparse.FileType( 'r' ), help='Workflow file to use' )
     parser.add_argument( '-s', '--system-prompt', required=False, help='System prompt to use with invoke_llm job' )
     parser.add_argument( '-u', '--user-prompt', required=False, help='User prompt to use with invoke_llm job' )
+    parser.add_argument( '-a', '--attach', required=False, type=argparse.FileType( 'rb' ), help='File or Image to attach to the job', nargs='*', dest='attachments' )
     # fmt: on
 
     return parser.parse_args()
@@ -131,10 +154,7 @@ class App:
             *config.system_prompt,
           ]
 
-    if (
-      "prompt" in playbook_data
-      and "system" in playbook_data["prompt"]
-    ):
+    if "prompt" in playbook_data and "system" in playbook_data["prompt"]:
       system_data = playbook_data["prompt"]["system"]
       if not isinstance(system_data, list):
         playbook_data["prompt"]["system"] = [system_data]
@@ -150,10 +170,7 @@ class App:
         elif isinstance(playbook_data["prompt"]["user"], str):
           playbook_data["prompt"]["user"] = [playbook_data["prompt"]["user"], *config.user_prompt]
 
-    if (
-      "prompt" in playbook_data
-      and "user" in playbook_data["prompt"]
-    ):
+    if "prompt" in playbook_data and "user" in playbook_data["prompt"]:
       user_data = playbook_data["prompt"]["user"]
       if not isinstance(user_data, list):
         playbook_data["prompt"]["user"] = [user_data]
@@ -176,6 +193,18 @@ class App:
     app_config = AppConfig()
     app_config.from_yaml(config_file=config_file, cmd_args=parsed_args)
     return app_config
+
+  def _init_attachments(self) -> list[FileAttachment]:
+    """Initialize the attachments"""
+    file_attachments = []
+    if self._config.verbose:
+      self.console.print(f"Loading {len(self._config.attachments)} attachment(s).")
+    if len(self._config.attachments):
+      for attachment in self._config.attachments:
+        file_attachment = FileAttachment(file_path=attachment.name)
+        file_attachments.append(file_attachment)
+    return file_attachments
+
 
   def run(self):
     try:
@@ -216,6 +245,7 @@ class App:
         self._workflow = WorkflowLoader.load(workflow_file=self._config.workflow_file)
         if self._config.verbose > 3:
           self.console.print(self._workflow)
+      self._file_attachments = self._init_attachments()
       self.run_client_role()
     except KeyboardInterrupt:
       self.console.print("\nCaught keyboard interrupt. Exiting.")
