@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional, Protocol
+from ai_cli.config import AppConfig
 import json
 import sys
 import os
@@ -10,6 +11,7 @@ import base64
 from importlib.util import spec_from_file_location, module_from_spec
 from datetime import datetime
 from uuid import uuid4
+from rich.console import Console
 
 
 @dataclass(frozen=True)
@@ -20,7 +22,7 @@ class IJobRequest(ABC):
   origin: str
   job_playbook: dict
   response_dest: Optional[str]
-  message_id: Optional[str]
+  message_id: str
   ack_id: Optional[str]
 
 
@@ -43,7 +45,7 @@ class IJobResponse(ABC):
   response_origin: str
   response_dest: Optional[str]
   result: list[IJobResult]
-  message_id: Optional[str]
+  message_id: str
   ack_id: Optional[str]
 
 
@@ -58,7 +60,7 @@ class IQueueMessage(ABC):
   dest_queue: Optional[str]
   src_queue: Optional[str]
   reply_to: Optional[str]
-  message_id: Optional[str]
+  message_id: str
   ack_id: Optional[str]
   origin_host_id: Optional[str]
 
@@ -91,11 +93,11 @@ class IQueue(ABC):
     pass
 
   @abstractmethod
-  def ack_message(self, message: Optional[IQueueMessage], ack_id: Optional[str]):
+  def ack_message(self, message: Optional[IQueueMessage] = None, ack_id: Optional[str] = None):
     pass
 
   @abstractmethod
-  def nack_message(self, message: Optional[IQueueMessage], ack_id: Optional[str]):
+  def nack_message(self, message: Optional[IQueueMessage] = None, ack_id: Optional[str] = None):
     pass
 
 
@@ -141,12 +143,12 @@ class IJobConsumer(ABC):
     pass
 
   @abstractmethod
-  def start_consuming():
+  def start_consuming(self):
     """When called this method will block and request_callback will be called when there are new requests to consume."""
     pass
 
   @abstractmethod
-  def stop_consuming():
+  def stop_consuming(self):
     pass
 
 
@@ -158,11 +160,11 @@ class IResponseSeeder(ABC):
     pass
 
   @abstractmethod
-  def respond_to_request(self, request: IJobRequest, result: IJobResult):
+  def respond_to_request(self, request: IJobRequest, result: list[IJobResult]):
     pass
 
   @abstractmethod
-  def create_response(self, request: IJobRequest, result: IJobResult) -> IJobResponse:
+  def create_response(self, request: IJobRequest, result: list[IJobResult]) -> IJobResponse:
     pass
 
   @abstractmethod
@@ -200,12 +202,12 @@ class IResponseConsumer(ABC):
     pass
 
   @abstractmethod
-  def start_consuming():
+  def start_consuming(self):
     """When called this method will block and request_callback will be called when there are new requests to consume."""
     pass
 
   @abstractmethod
-  def stop_consuming():
+  def stop_consuming(self):
     pass
 
 
@@ -213,12 +215,12 @@ class IJob(ABC):
   """Interface for job queue jobs."""
 
   @abstractmethod
-  def __init__(self, app_config: dict, console: any):
+  def __init__(self, app_config: AppConfig, console: Console):
     """The init method gets a copy of the locally running app config to determine things like log output location and verbosity"""
     pass
 
   @abstractmethod
-  def run(self, request: IJobRequest) -> IJobResult:
+  def run(self, request: IJobRequest) -> list[IJobResult]:
     """The run method is expected to execute any job logic specified in the IJobRequest and return an IJobResult"""
     pass
 
@@ -228,7 +230,7 @@ class JobLoader:
 
   @staticmethod
   def load_jobs(
-    job_dir: str, app_config: dict, console: any, exclude: list[str] = []
+    job_dir: str, app_config: AppConfig, console: Console, exclude: list[str] = []
   ) -> dict[str, "IJob"]:
     # try to find a job directory..
     if not os.path.exists(job_dir):
@@ -257,8 +259,8 @@ class JobLoader:
           module = None
           if not already_loaded:
             spec = spec_from_file_location(module_name, filepath)
-            module = module_from_spec(spec)
-            spec.loader.exec_module(module)
+            module = module_from_spec(spec) # type: ignore
+            spec.loader.exec_module(module) # type: ignore
             sys.modules[module_name] = module
             if app_config.verbose > 3:
               console.print(f"Loaded module: '{module_name}' from '{filepath}'")
@@ -306,7 +308,7 @@ class QueueMessage(IQueueMessage):
   type: str
   context: str
   created: str = field(default_factory=lambda: datetime.now().isoformat())
-  message_id: Optional[str] = field(default_factory=lambda: str(uuid4()))
+  message_id: str = field(default_factory=lambda: str(uuid4()))
   ack_id: Optional[str] = None
   reply_to: Optional[str] = None
   dest_queue: Optional[str] = None
@@ -320,8 +322,8 @@ class JobRequest(IJobRequest):
 
   origin: str
   job_name: str
-  job_playbook: str
-  message_id: Optional[str] = field(default_factory=lambda: str(uuid4()))
+  job_playbook: dict
+  message_id: str = field(default_factory=lambda: str(uuid4()))
   ack_id: Optional[str] = None
   response_dest: Optional[str] = None
 
@@ -345,7 +347,7 @@ class JobResponse(IJobResponse):
   response_origin: str
   result: list[IJobResult]
   response_dest: Optional[str]
-  message_id: Optional[str] = field(default_factory=lambda: str(uuid4()))
+  message_id: str = field(default_factory=lambda: str(uuid4()))
   ack_id: Optional[str] = None
 
 
@@ -412,7 +414,7 @@ class JobConsumer(IJobConsumer, IResponseSeeder):
     return JobRequest(
       job_name=message.context,
       origin=message.origin_host_id if message.origin_host_id else "",
-      job_playbook=decoded_message_body,
+      job_playbook=decoded_message_body if decoded_message_body else {},
       message_id=message.reply_to
       if message.reply_to and message.reply_to != "None"
       else message.message_id,
@@ -468,7 +470,7 @@ class JobConsumer(IJobConsumer, IResponseSeeder):
       reply_to=response.request_message_id,
       origin_host_id=response.response_origin,
       dest_queue=response_dest,
-      body=encoded_message_body,
+      body=encoded_message_body if encoded_message_body else "",
     )
     # print( f"JobConsumer.send_response -> Response: {response}" )
     # print( f"JobConsumer.send_response -> message: {message}" )
@@ -488,10 +490,10 @@ class JobSeeder(IJobSeeder):
     self._queue = queue
     self._body_format = body_format
 
-  def _serialize_obj(self, obj: any) -> Optional[str]:
+  def _serialize_obj(self, obj: Any) -> Optional[str]:
     serialized_obj = None
     if self._body_format == "pickle":
-      serialized_obj = pickle.dumps(obj)
+      serialized_obj = str(base64.b64encode(pickle.dumps(obj)))
     elif self._body_format == "json":
       serialized_obj = json.dumps(obj)
     else:
@@ -508,7 +510,7 @@ class JobSeeder(IJobSeeder):
       context=request.job_name,
       dest_queue=f"ai-cli.job.{request.job_name}",
       origin_host_id=request.origin,
-      body=encoded_message_body,
+      body=encoded_message_body if encoded_message_body else "",
     )
     # print( f"JobSeeder.send_request -> QueueMessage {message}" )
     self._queue.send_message(message=message)
@@ -543,10 +545,10 @@ class ResponseConsumer(IResponseConsumer):
     # and register them with our internal callback..
     # print( f"Created ResponseConsumer: {supported_jobs}" )
 
-  def _deserialize_obj(self, serialized_obj: str) -> Optional[any]:
+  def _deserialize_obj(self, serialized_obj: str) -> Optional[Any]:
     deserialized_obj = None
     if self._body_format == "pickle":
-      deserialized_obj = pickle.loads(serialized_obj)
+      deserialized_obj = pickle.loads(base64.b64decode(serialized_obj))
     elif self._body_format == "json":
       deserialized_obj = json.loads(serialized_obj)
     else:
@@ -568,34 +570,34 @@ class ResponseConsumer(IResponseConsumer):
 
   def _get_response(self, message: IQueueMessage) -> JobResponse:
 
-    deserialzed_body = self._deserialize_obj(serialized_obj=message.body)
-    # print( f"deserialized body: {deserialzed_body}" )
+    deserialized_body = self._deserialize_obj(serialized_obj=message.body)
+    # print( f"deserialized body: {deserialized_body}" )
     # we can use json to serialize / deserialize but then we need to do things like this..
     # where our json inflates to a dict of args that we give to an object.
     # if you don't need anything more complicated than a dict in the first place it's fine..
     # for result consumers we want JobResults back..
 
     # we use pickle now as the default, so this is not needed anymore?
-    # if not isinstance( deserialzed_body, IJobResult ):
-    #   deserialzed_body = JobResult( **deserialzed_body )
+    # if not isinstance( deserialized_body, IJobResult ):
+    #   deserialized_body = JobResult( **deserialized_body )
 
     return JobResponse(
       job_name=message.context,
       message_id=message.message_id,
       ack_id=message.ack_id,
-      response_origin=message.origin_host_id,
-      result=deserialzed_body,
-      request_message_id=message.reply_to,
+      response_origin=message.origin_host_id if message.origin_host_id else "",
+      result=deserialized_body if deserialized_body else [],
+      request_message_id=message.reply_to if message.reply_to else "",
       response_dest=self._host_id,
-      request_origin=message.origin_host_id,
+      request_origin=message.origin_host_id if message.origin_host_id else "",
     )
 
-  def ack_response(self, response: JobResponse):
+  def ack_response(self, response: IJobResponse):
     # turn the request into a QueueMessage and ack it.?
     # print( f"ResponseConsumer.ack_request -> {response}" )
     self._queue.ack_message(ack_id=response.ack_id)
 
-  def nack_response(self, response: JobResponse):
+  def nack_response(self, response: IJobResponse):
     self._queue.ack_message(ack_id=response.ack_id)
 
   def start_consuming(self):
@@ -622,5 +624,5 @@ class JobQueueFactory:
     elif queue_type == "rabbitmq":
       from ai_cli.rabbitmq_job_queue import RabbitMqJobQueue
 
-      return RabbitMqJobQueue(init_args=init_args)
+      return RabbitMqJobQueue(init_args=init_args if init_args else {})
     raise ValueError(f"Unknown queue type: {queue_type}")

@@ -2,20 +2,23 @@ import sys
 import os
 import inspect
 
+
 from dataclasses import dataclass, field
-from ai_cli.job_queue import IJob, JobRequest, IJobResult, JobResult, JobLoader
+from ai_cli.job_queue import IJob, IJobRequest, JobRequest, IJobResult, JobResult, JobLoader
 from ai_cli.workflow import WorkflowLoader
+from ai_cli.config import AppConfig
 from typing import Optional
+from rich.console import Console
 
 
 class Workflow(IJob):
-  _app_config: dict = {}
+  _app_config: AppConfig
   _request: JobRequest
   _output: list[str] = []
   _errors: list[str] = []
-  _console: any
+  _console: Console
 
-  def __init__(self, app_config: dict, console: any):
+  def __init__(self, app_config: AppConfig, console: Console):
     self._app_config = app_config
     self._console = console
     self._loader = JobLoader()
@@ -27,7 +30,7 @@ class Workflow(IJob):
     if app_config.verbose > 3:
       console.print(f"Loaded Jobs is now: {self._loaded_jobs}")
 
-  def run(self, request: JobRequest) -> IJobResult:
+  def run(self, request: IJobRequest) -> list[IJobResult]:
     # when running workflows, the job_playbook is the workflow data..
     # we use the helper method to get the list of jobs from the workflow data
     workflow_data = request.job_playbook
