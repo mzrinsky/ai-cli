@@ -378,8 +378,12 @@ class JobConsumer(IJobConsumer, IResponseSeeder):
 
   def _serialize_obj(self, obj: Any) -> Optional[str]:
     serialized_obj = None
+    # this is all incredibly broken..
+    # all serialization / deserialization here is broken..
+    # it is working because pika is correctly handling the bytes type
+    # and doing magic behind the scenes when using RabbitMQ..
     if self._body_format == "pickle":
-      serialized_obj = str(base64.b64encode(pickle.dumps(obj)))
+      serialized_obj = pickle.dumps(obj)
     elif self._body_format == "json":
       serialized_obj = json.dumps(obj)
     else:
@@ -388,8 +392,11 @@ class JobConsumer(IJobConsumer, IResponseSeeder):
 
   def _deserialize_obj(self, serialized_obj: str) -> Optional[Any]:
     deserialized_obj = None
+    # all serialization / deserialization here is broken..
+    # it is working because pika is correctly handling the bytes type
+    # and doing magic behind the scenes when using RabbitMQ..
     if self._body_format == "pickle":
-      deserialized_obj = pickle.loads(base64.b64decode(serialized_obj))
+      deserialized_obj = pickle.loads(serialized_obj)
     elif self._body_format == "json":
       deserialized_obj = json.loads(serialized_obj)
     else:
@@ -491,9 +498,12 @@ class JobSeeder(IJobSeeder):
     self._body_format = body_format
 
   def _serialize_obj(self, obj: Any) -> Optional[str]:
+    # all serialization / deserialization here is broken..
+    # it is working because pika is correctly handling the bytes type
+    # and doing magic behind the scenes when using RabbitMQ..
     serialized_obj = None
     if self._body_format == "pickle":
-      serialized_obj = str(base64.b64encode(pickle.dumps(obj)))
+      serialized_obj = pickle.dumps(obj)
     elif self._body_format == "json":
       serialized_obj = json.dumps(obj)
     else:
@@ -546,9 +556,12 @@ class ResponseConsumer(IResponseConsumer):
     # print( f"Created ResponseConsumer: {supported_jobs}" )
 
   def _deserialize_obj(self, serialized_obj: str) -> Optional[Any]:
+    # all serialization / deserialization here is broken..
+    # it is working because pika is correctly handling the bytes type
+    # and doing magic behind the scenes when using RabbitMQ..
     deserialized_obj = None
     if self._body_format == "pickle":
-      deserialized_obj = pickle.loads(base64.b64decode(serialized_obj))
+      deserialized_obj = pickle.loads(serialized_obj)
     elif self._body_format == "json":
       deserialized_obj = json.loads(serialized_obj)
     else:
@@ -571,15 +584,10 @@ class ResponseConsumer(IResponseConsumer):
   def _get_response(self, message: IQueueMessage) -> JobResponse:
 
     deserialized_body = self._deserialize_obj(serialized_obj=message.body)
-    # print( f"deserialized body: {deserialized_body}" )
-    # we can use json to serialize / deserialize but then we need to do things like this..
-    # where our json inflates to a dict of args that we give to an object.
-    # if you don't need anything more complicated than a dict in the first place it's fine..
-    # for result consumers we want JobResults back..
 
-    # we use pickle now as the default, so this is not needed anymore?
-    # if not isinstance( deserialized_body, IJobResult ):
-    #   deserialized_body = JobResult( **deserialized_body )
+    # all serialization / deserialization here is broken..
+    # it is working because pika is correctly handling the bytes type
+    # and doing magic behind the scenes when using RabbitMQ..
 
     return JobResponse(
       job_name=message.context,
