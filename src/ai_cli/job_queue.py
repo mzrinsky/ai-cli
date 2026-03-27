@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional, Protocol
 from ai_cli.config import AppConfig
-from ai_cli.shared_storage import StoredFile
+from ai_cli.shared_storage import StoredFile, FileAttachment, IStorageModel
 import json
 import sys
 import os
@@ -26,6 +26,7 @@ class IJobRequest(ABC):
   ack_id: Optional[str] = None
   response_dest: Optional[str] = None
   stored_files: Optional[list[StoredFile]] = None
+  file_attachments: Optional[list[FileAttachment]] = None
 
 
 @dataclass(frozen=True)
@@ -217,7 +218,7 @@ class IJob(ABC):
   """Interface for job queue jobs."""
 
   @abstractmethod
-  def __init__(self, app_config: AppConfig, console: Console):
+  def __init__(self, app_config: AppConfig, console: Console, storage_model: IStorageModel):
     """The init method gets a copy of the locally running app config to determine things like log output location and verbosity"""
     pass
 
@@ -232,7 +233,11 @@ class JobLoader:
 
   @staticmethod
   def load_jobs(
-    job_dir: str, app_config: AppConfig, console: Console, exclude: list[str] = []
+    job_dir: str,
+    app_config: AppConfig,
+    console: Console,
+    storage_model: IStorageModel,
+    exclude: list[str] = [],
   ) -> dict[str, "IJob"]:
     # try to find a job directory..
     if not os.path.exists(job_dir):
@@ -261,8 +266,8 @@ class JobLoader:
           module = None
           if not already_loaded:
             spec = spec_from_file_location(module_name, filepath)
-            module = module_from_spec(spec) # type: ignore
-            spec.loader.exec_module(module) # type: ignore
+            module = module_from_spec(spec)  # type: ignore
+            spec.loader.exec_module(module)  # type: ignore
             sys.modules[module_name] = module
             if app_config.verbose > 3:
               console.print(f"Loaded module: '{module_name}' from '{filepath}'")
@@ -281,7 +286,9 @@ class JobLoader:
               cls = getattr(module, class_name)
               if issubclass(cls, IJob) and cls != IJob:
                 # keep track of this job instance
-                jobs[module_name] = cls(app_config=app_config, console=console)
+                jobs[module_name] = cls(
+                  app_config=app_config, console=console, storage_model=storage_model
+                )
             else:
               if app_config.verbose > 3:
                 console.print(f"Module '{module}' lacks attr '{class_name}'")
@@ -424,9 +431,7 @@ class JobConsumer(IJobConsumer, IResponseSeeder):
       job_name=message.context,
       origin=message.origin_host_id if message.origin_host_id else "",
       job_playbook=decoded_message_body if decoded_message_body else {},
-      message_id=message.reply_to
-      if message.reply_to and message.reply_to != "None"
-      else message.message_id,
+      message_id=message.message_id,
       ack_id=message.ack_id,
     )
 
@@ -515,7 +520,8 @@ class JobSeeder(IJobSeeder):
   def send_request(self, request: IJobRequest):
     """Send an IJobRequest via the IQueue as a QueueMessage"""
     # print( f"JobSeeder.send_request -> IJobRequest {request}" )
-    encoded_message_body = self._serialize_obj(obj=request.job_playbook)
+    encoded_message_body = self._serialize_obj(obj=request)
+    print(f"\nJobRequest: request message_id is {request.message_id}\n")
     message = QueueMessage(
       message_id=request.message_id,
       type="job",

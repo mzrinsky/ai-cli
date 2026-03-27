@@ -41,13 +41,6 @@ class App:
       init_args=self._config.storage_backend_options if self._config.storage_backend_options else {},
     )
 
-  def _get_stored_files(self) -> list[StoredFile]:
-    stored_files = []
-    for attachment in self._file_attachments:
-      stored_file = self._storage_model.upload(attachment=attachment)
-      stored_files.append(stored_file)
-    return stored_files
-
   def run_client_role(self):
     if self._config.verbose > 1:
       self.console.print("Initializing queue ...")
@@ -56,16 +49,13 @@ class App:
       self.console.print(f"Initializing storage model '{self._config.storage_backend}' ...")
     self._storage_model = self._init_storage_model()
     if self._config.verbose > 1:
-      self.console.print(f"Creating StoredFiles from {len(self._file_attachments)} FileAttachments")
-    self._stored_files = self._get_stored_files()
-    if self._config.verbose > 1:
       self.console.print(f"Running in role '{self._config.role}' ...")
     if self._config.role == "hybrid":
       self._hybrid = HybridClient(
         app_config=self._config,
         queue=self._queue,
         storage_model=self._storage_model,
-        stored_files=self._stored_files,
+        file_attachments=self._file_attachments,
         console=self.console,
         playbook=self._playbook,
         workflow=self._workflow,

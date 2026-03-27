@@ -27,7 +27,7 @@ class FileAttachment(ABC):
 
   @file_path.setter
   def file_path(self, file_path: str) -> None:
-    self._handle_update(file_path=file_path)
+    self._handle_update(file_path=file_path, remote_path_prefix=self._remote_path_prefix)
 
   @property
   def remote_path_prefix(self) -> Optional[str]:
@@ -49,8 +49,9 @@ class FileAttachment(ABC):
 class StoredFile:
   """A file from storage."""
 
-  def __init__(self, remote_path: str):
+  def __init__(self, remote_path: str, remote_path_prefix: Optional[str] = None):
     self._remote_path = remote_path
+    self._remote_path_prefix = remote_path_prefix
 
   @property
   def remote_path(self) -> str:
@@ -59,6 +60,16 @@ class StoredFile:
   @remote_path.setter
   def remote_path(self, remote_path: str) -> None:
     self._remote_path = remote_path
+
+  @property
+  def remote_path_prefix(self) -> Optional[str]:
+    """Returns the path prefix this file is stored under (the remote_path should be this plus any path)."""
+    return self._remote_path_prefix
+
+  @remote_path_prefix.setter
+  def remote_path_prefix(self, remote_path_prefix: Optional[str]) -> None:
+    """Returns the path prefix this file is stored under."""
+    self._remote_path_prefix = remote_path_prefix
 
 
 class IStorageModel(ABC):
@@ -87,22 +98,34 @@ class IStorageModel(ABC):
 
   @abstractmethod
   def in_storage(self, stored_file: StoredFile) -> bool:
+    """Return a boolean indicating if the stored_file exists remote storage"""
     pass
 
   @abstractmethod
   def in_local(self, stored_file: StoredFile) -> bool:
+    """Return a boolean indicating if the stored_file exists in self.local_storage_path"""
     pass
 
   @abstractmethod
-  def upload(self, attachment: FileAttachment) -> StoredFile:
+  def upload(
+    self, attachment: FileAttachment, remote_path_prefix: Optional[str] = None
+  ) -> StoredFile:
+    """Upload a FileAttachment to remote storage and return a StoredFile object,
+    optionally, placing the FileAttachment in a remote_path_prefix."""
     pass
 
   @abstractmethod
-  def batch_upload(self, attachments: List[FileAttachment]) -> List[StoredFile]:
+  def batch_upload(
+    self, attachments: List[FileAttachment], remote_path_prefix: Optional[str] = None
+  ) -> List[StoredFile]:
+    """Upload a list of FileAttachments to remote storage and return a list of StoredFile objects,
+    optionally, placing the FileAttachments in a remote_path_prefix."""
     pass
 
   @abstractmethod
-  def download(self, remote_path: str) -> StoredFile:
+  def download(
+    self, remote_path: Optional[str] = None, stored_file: Optional[StoredFile] = None
+  ) -> StoredFile:
     pass
 
   @abstractmethod
@@ -112,11 +135,27 @@ class IStorageModel(ABC):
     pass
 
   @abstractmethod
+  def sync_to_local(self, stored_files: List[StoredFile]) -> List[StoredFile]:
+    """Check if the List of StoredFiles exist in local storage and if not,
+    batch_download the files to local storage."""
+    pass
+
+  @abstractmethod
+  def cleanup_local_path(self, stored_files: List[StoredFile]):
+    """This will REMOVE all files in the stored_files remote_path_prefix if it exists,
+    otherwise it will just remove the stored_file."""
+    pass
+
+  @abstractmethod
   def delete(self, stored_file: Optional[StoredFile] = None, remote_path: Optional[str] = None):
     pass
 
   @abstractmethod
   def delete_prefix(self, remote_path: str):
+    pass
+
+  @abstractmethod
+  def cleanup_remote_path(self, stored_files: List[StoredFile]):
     pass
 
   @abstractmethod

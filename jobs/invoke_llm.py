@@ -4,8 +4,11 @@ import sys
 import os
 import inspect
 
+from rich.console import Console
 from dataclasses import dataclass, field
+from ai_cli.config import AppConfig
 from ai_cli.job_queue import IJob, JobRequest, IJobResult, JobResult
+from ai_cli.shared_storage import IStorageModel
 from typing import Optional
 import importlib
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -38,7 +41,7 @@ class ChatModelFactory:
 
 class InvokeLlm( IJob ):
 
-  _app_config: dict = {}
+  _app_config: AppConfig
   _request: JobRequest
   _output: list[ str ] = []
   _errors: list[ str ] = []
@@ -47,11 +50,13 @@ class InvokeLlm( IJob ):
   _mcp_client: Optional[ MultiServerMCPClient ] = None
   _message_state: dict = {}
   _state_history: list = []
-  _console: any
+  _console: Console
+  _storage_model: IStorageModel
 
-  def __init__(self, app_config: dict, console: any):
+  def __init__(self, app_config: AppConfig, console: Console, storage_model: IStorageModel):
     self._app_config = app_config
     self._console = console
+    self._storage_model = storage_model
 
   def _load_local_tool( self, tool_name: str, code_path: str ):
     spec = importlib.util.spec_from_file_location( tool_name, code_path )

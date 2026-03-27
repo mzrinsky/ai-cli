@@ -16,6 +16,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from socket import gethostname
 from typing import Optional
+from uuid import uuid4
 import warnings
 
 
@@ -29,7 +30,7 @@ class HybridClient:
     console: Console,
     playbook: Optional[dict] = None,
     storage_model: Optional[IStorageModel] = None,
-    stored_files: list[StoredFile] = field(default_factory=list),
+    file_attachments: list[FileAttachment] = field(default_factory=list),
     workflow: Optional[dict] = None,
   ):
     self.console = console
@@ -39,12 +40,12 @@ class HybridClient:
     self._loader = JobLoader()
     self._queue = queue
     self._storage_model = storage_model
-    self._stored_files = stored_files
+    self._file_attachments = file_attachments
     self._outout_formatter = OutputFormatter(app_config=self._app_config)
     if app_config.worker or app_config.wait_for_result:
       job_dir = os.path.join(os.path.dirname(__file__), "..", "..", "jobs")
       self._loaded_jobs = self._loader.load_jobs(
-        job_dir=job_dir, app_config=app_config, console=self.console
+        job_dir=job_dir, app_config=app_config, console=self.console, storage_model=storage_model
       )
     if app_config.worker:
       self._job_consumer = JobConsumer(
@@ -81,9 +82,12 @@ class HybridClient:
 
   def _dispatch_response(self, response: JobResponse):
     if self._app_config.verbose > 3:
-      self.console.print(f"HybridClient._dispatch_response : {response}")
-    # thanks to using pickle and wrapping the result in a response,
-    # the result will be automatically thawed into any custom result type returned by the job.
+      self.console.print(f"HybridClient._dispatch_response : {vars(response)}")
+
+    self._storage_model.delete_prefix(remote_path=response.request_message_id)
+
+    self.console.print(f"ReplyTo: {response.request_message_id}")
+
     output = self._outout_formatter.format(response.result)
     self.console.print(Markdown(output))
     self._response_consumer.ack_response(response=response)
@@ -93,14 +97,39 @@ class HybridClient:
         self.console.print("All jobs complete, exiting.")
       exit()
 
+  def _store_file_attachments(self, remote_path_prefix: str) -> list[StoredFile]:
+    stored_files = []
+    if self._storage_model:
+      stored_files = self._storage_model.batch_upload(
+        attachments=self._file_attachments, remote_path_prefix=remote_path_prefix
+      )
+      for file in stored_files:
+        self.console.print(f"HybridClient -> _store_file_attachments got StoredFile: {vars(file)}")
+    return stored_files
+
+  def _cleanup_stored_files(self, stored_files: list[StoredFile]):
+    self._storage_model.cleanup_remote_path(stored_files=stored_files)
+
   def run(self):
     if self._app_config.verbose > 1:
       self.console.print("Hybrid Client Running.")
     if self._app_config.job and self._playbook:
       if self._app_config.verbose > 1:
         self.console.print(f"HybridClient -> sending job request '{self._app_config.job}'")
+      request_id = str(uuid4())
+      stored_files = []
+      if self._file_attachments:
+        if self._app_config.verbose > 1:
+          self.console.print(
+            f"Storing {len(self._file_attachments)} FileAttachments for JobRequest '{request_id}' ..."
+          )
+        stored_files = self._store_file_attachments(remote_path_prefix=request_id)
       new_job = JobRequest(
-        job_name=self._app_config.job, origin=gethostname(), job_playbook=self._playbook
+        message_id=request_id,
+        job_name=self._app_config.job,
+        origin=gethostname(),
+        job_playbook=self._playbook,
+        stored_files=stored_files,
       )
       self._outstanding_jobs.append(new_job)
       if self._app_config.verbose:
@@ -114,7 +143,21 @@ class HybridClient:
         if not workflow_name:
           workflow_name = self._app_config.workflow_file.name
         self.console.print(f"HybridClient -> sending workflow request '{workflow_name}'")
-        new_job = JobRequest(job_name="workflow", origin=gethostname(), job_playbook=self._workflow)
+        request_id = str(uuid4())
+        stored_files = []
+        if self._file_attachments:
+          if self._app_config.verbose > 1:
+            self.console.print(
+              f"Storing {len(self._file_attachments)} FileAttachments for JobRequest '{request_id}' ..."
+            )
+          stored_files = self._store_file_attachments(remote_path_prefix=request_id)
+        new_job = JobRequest(
+          message_id=request_id,
+          job_name="workflow",
+          origin=gethostname(),
+          job_playbook=self._workflow,
+          stored_files=stored_files,
+        )
         self._outstanding_jobs.append(new_job)
         if self._app_config.verbose:
           self.console.print(f"Seeding job '{new_job.job_name}' to queue ...")
