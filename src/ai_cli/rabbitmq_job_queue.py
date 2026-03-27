@@ -15,9 +15,9 @@ class RabbitMqJobQueue( IQueue ):
 
   def _handle_on_message_callback( self, channel, method_frame, header_frame, body ):
     """Handle the pika on_message callback and dispatch any registered QueueMessage callbacks"""
-    #print( f"RabbitMqJobQueue._handle_on_message_callback -> channel: {channel}" )
-    #print( method_frame )
-    #print( header_frame )
+    print( f"RabbitMqJobQueue._handle_on_message_callback -> channel: {channel}" )
+    print( f"Method Frame: {vars(method_frame)}" )
+    print( f"Header Frame: {vars(header_frame)}" )
     if method_frame.routing_key in self._callbacks:
       # create a QueueMessage from the rabbitmq message details
       message = QueueMessage(
@@ -63,9 +63,10 @@ class RabbitMqJobQueue( IQueue ):
 
   def send_message( self, message: IQueueMessage ):
     """Send a message that implements the IQueueMessage interface."""
+    print(f"\nRabbitMQJobQueue -> send_message: message message_id is {message.message_id}\n")
     properties = pika.BasicProperties(
-      message_id=str( message.message_id ),
-      reply_to=str( message.reply_to ),
+      message_id=message.message_id,
+      reply_to=message.reply_to,
       headers={
       "type": message.type,
       "context": message.context,
